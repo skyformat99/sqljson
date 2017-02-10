@@ -1370,6 +1370,247 @@ typedef struct TriggerTransition
 	bool		isTable;
 } TriggerTransition;
 
+/* Nodes for SQL/JSON support */
+
+typedef enum
+{
+	JSON_BEHAVIOR_NULL,
+	JSON_BEHAVIOR_ERROR,
+	JSON_BEHAVIOR_EMPTY,
+	JSON_BEHAVIOR_TRUE,
+	JSON_BEHAVIOR_FALSE,
+	JSON_BEHAVIOR_UNKNOWN,
+	JSON_BEHAVIOR_EMPTY_ARRAY,
+	JSON_BEHAVIOR_EMPTY_OBJECT,
+	JSON_BEHAVIOR_DEFAULT,
+} JsonBehaviorKind;
+
+typedef struct JsonBehavior
+{
+	NodeTag		type;
+	JsonBehaviorKind kind;
+	Node	   *expr;
+} JsonBehavior;
+
+typedef enum
+{
+	JTC_REGULAR,
+	JTC_FOR_ORDINALITY,
+	JTC_FORMATTED,
+	JTC_NESTED,
+	JTC_CHAINING
+} JsonTableColumnType;
+
+typedef enum
+{
+	JSW_NONE,
+	JSW_CONDITIONAL,
+	JSW_UNCONDITIONAL,
+} JsonWrapper;
+
+typedef enum
+{
+	JS_ENC_UTF8,
+	JS_ENC_UTF16,
+	JS_ENC_UTF32,
+	JS_ENC_DEFAULT,
+} JsonEncoding;
+
+typedef enum JsonFormatType
+{
+	JS_FORMAT_DEFAULT,
+	JS_FORMAT_JSON,
+	JS_FORMAT_JSONB,
+} JsonFormatType;
+
+typedef struct JsonFormat
+{
+	JsonFormatType	type;
+	JsonEncoding	encoding;
+} JsonFormat;
+
+typedef char *JsonPathSpec;
+
+typedef struct JsonOutput
+{
+	NodeTag		type;
+	TypeName   *typename;
+	JsonFormat	format;
+} JsonOutput;
+
+typedef struct JsonValueExpr
+{
+	NodeTag		type;
+	Expr	   *expr;
+	JsonFormat  format;
+} JsonValueExpr;
+
+typedef struct JsonArgument
+{
+	NodeTag		type;
+	JsonValueExpr *val;
+	char	   *name;
+} JsonArgument;
+
+typedef struct JsonCommon
+{
+	NodeTag		type;
+	JsonValueExpr *expr;
+	JsonPathSpec pathspec;
+	char	   *as_path;
+	List	   *passing;
+} JsonCommon;
+
+typedef struct JsonValueFunc
+{
+	NodeTag		type;
+	JsonCommon *common;
+	TypeName   *returning;
+	JsonBehavior *on_empty;
+	JsonBehavior *on_error;
+} JsonValueFunc;
+
+typedef struct JsonQueryFunc
+{
+	NodeTag		type;
+	JsonCommon *common;
+	JsonOutput *output;
+	JsonBehavior *on_empty;
+	JsonBehavior *on_error;
+	JsonWrapper	wrapper;
+	bool		quotes;
+} JsonQueryFunc;
+
+/* JsonTableColumn */
+typedef struct JsonTableColumn
+{
+	NodeTag		type;
+	JsonTableColumnType coltype;
+	char	   *name;
+	TypeName   *typename;
+	JsonPathSpec pathspec;
+	char	   *aspath;
+	JsonFormat	format;
+	JsonWrapper	wrapper;
+	bool		quotes;
+	List	   *columns;
+	JsonBehavior *on_empty;
+	JsonBehavior *on_error;
+} JsonTableColumn;
+
+typedef enum
+{
+	JSTP_INNER,
+	JSTP_OUTER,
+	JSTP_CROSS,
+	JSTP_UNION,
+} JsonTablePlanType;
+
+typedef struct JsonTableSimplePlan
+{
+	NodeTag		type;
+	char	   *name;
+} JsonTableSimplePlan;
+
+typedef struct JsonTableJoinedPlan
+{
+	NodeTag		type;
+	JsonTablePlanType plantype;
+	Node	   *plan1;
+	Node	   *plan2;
+} JsonTableJoinedPlan;
+
+typedef struct JsonTableDefaultPlan
+{
+	NodeTag		type;
+	JsonTablePlanType plantype;
+} JsonTableDefaultPlan;
+
+typedef struct JsonTablePrimitive
+{
+	NodeTag		type;
+	JsonCommon *common;
+	List	   *columns;
+	JsonBehaviorKind on_error;
+} JsonTablePrimitive;
+
+typedef struct JsonTableFunc
+{
+	NodeTag		type;
+	JsonCommon *common;
+	List	   *columns;
+	Node	   *plan;
+	JsonBehaviorKind on_error;
+} JsonTableFunc;
+
+typedef struct JsonExistsPredicate
+{
+	NodeTag		type;
+	JsonCommon *common;
+	JsonBehaviorKind on_error;
+	int			location;
+} JsonExistsPredicate;
+
+typedef struct JsonKeyValue
+{
+	NodeTag		type;
+	Expr	   *key;
+	JsonValueExpr *value;
+} JsonKeyValue;
+
+typedef struct JsonObjectCtor
+{
+	NodeTag		type;
+	List	   *exprs;
+	JsonOutput *output;
+	bool		absent_on_null;
+	bool		unique;
+	int			location;
+} JsonObjectCtor;
+
+typedef struct JsonArrayCtor
+{
+	NodeTag		type;
+	List	   *exprs;
+	JsonOutput *output;
+	bool		absent_on_null;
+	int			location;
+} JsonArrayCtor;
+
+typedef struct JsonArrayQueryCtor
+{
+	NodeTag		type;
+	Node	   *query;
+	JsonOutput *output;
+	JsonFormat	format;
+	bool		absent_on_null;
+	int			location;
+} JsonArrayQueryCtor;
+
+typedef struct JsonAggCtor
+{
+	NodeTag		type;
+	JsonOutput *output;
+	Node	   *agg_filter;		/* FILTER clause, if any */
+	List	   *agg_order;		/* ORDER BY clause, if any */
+	int			location;
+} JsonAggCtor;
+
+typedef struct JsonObjectAgg
+{
+	JsonAggCtor	ctor;
+	JsonKeyValue *arg;
+	bool		absent_on_null;
+	bool		unique;
+} JsonObjectAgg;
+
+typedef struct JsonArrayAgg
+{
+	JsonAggCtor	ctor;
+	JsonValueExpr *arg;
+	bool		absent_on_null;
+} JsonArrayAgg;
+
 /*****************************************************************************
  *		Raw Grammar Output Statements
  *****************************************************************************/

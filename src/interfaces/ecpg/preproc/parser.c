@@ -84,6 +84,12 @@ filtered_base_yylex(void)
 		case WITH:
 			cur_token_length = 4;
 			break;
+		case WITHOUT:
+			cur_token_length = 7;
+			break;
+		case FORMAT:
+			cur_token_length = 6;
+			break;
 		default:
 			return cur_token;
 	}
@@ -154,6 +160,31 @@ filtered_base_yylex(void)
 				case TIME:
 				case ORDINALITY:
 					cur_token = WITH_LA;
+					break;
+				case UNIQUE:
+					cur_token = WITH_LA_UNIQUE;
+					break;
+			}
+			break;
+
+		case WITHOUT:
+			/* Replace WITH by WITH_LA if it's followed by TIME or ORDINALITY */
+			switch (next_token)
+			{
+				case TIME:
+					cur_token = WITHOUT_LA;
+					break;
+			}
+			break;
+
+		case FORMAT:
+			/* Replace FORMAT by FORMAT_LA if it's followed by JSON */
+			switch (next_token)
+			{
+				/* FIXME!!! set_parsing_json_expression(bool) */
+				case JSON:
+				case JSONB:
+					cur_token = FORMAT_LA;
 					break;
 			}
 			break;

@@ -86,4 +86,9 @@ extern DefElem *makeDefElemExtended(char *nameSpace, char *name, Node *arg,
 
 extern GroupingSet *makeGroupingSet(GroupingSetKind kind, List *content, int location);
 
+extern Node *makeJsonBehavior(JsonBehaviorKind kind, Node *expr);
+extern Node *makeJsonTableJoinedPlan(JsonTablePlanType type, Node *plan1, Node *plan2);
+extern Node *makeJsonKeyValue(Node *key, Node *value);
+extern JsonEncoding makeJsonEncoding(char *name);
+
 #endif   /* MAKEFUNC_H */

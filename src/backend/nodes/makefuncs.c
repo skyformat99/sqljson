@@ -20,6 +20,7 @@
 #include "fmgr.h"
 #include "nodes/makefuncs.h"
 #include "nodes/nodeFuncs.h"
+#include "utils/errcodes.h"
 #include "utils/lsyscache.h"
 
 
@@ -610,4 +611,55 @@ makeGroupingSet(GroupingSetKind kind, List *content, int location)
 	n->content = content;
 	n->location = location;
 	return n;
+}
+
+Node *
+makeJsonBehavior(JsonBehaviorKind kind, Node *expr)
+{
+	JsonBehavior *n = makeNode(JsonBehavior);
+
+	n->kind = kind;
+	n->expr = expr;
+
+	return (Node *) n;
+}
+
+Node *
+makeJsonTableJoinedPlan(JsonTablePlanType type, Node *plan1, Node *plan2)
+{
+	JsonTableJoinedPlan *n = makeNode(JsonTableJoinedPlan);
+
+	n->plantype = type;
+	n->plan1 = plan1;
+	n->plan2 = plan2;
+
+	return (Node *) n;
+}
+
+JsonEncoding
+makeJsonEncoding(char *name)
+{
+	if (!pg_strcasecmp(name, "utf8"))
+		return JS_ENC_UTF8;
+	if (!pg_strcasecmp(name, "utf16"))
+		return JS_ENC_UTF16;
+	if (!pg_strcasecmp(name, "utf32"))
+		return JS_ENC_UTF32;
+
+	ereport(ERROR,
+			(errcode(ERRCODE_INVALID_NAME), /* FIXME */
+			 errmsg("unrecognized JSON encoding: %s", name)));
+
+	return JS_ENC_DEFAULT;
+}
+
+Node *
+makeJsonKeyValue(Node *key, Node *value)
+{
+	JsonKeyValue *n = makeNode(JsonKeyValue);
+
+	n->key = (Expr *) key;
+	n->value = castNode(JsonValueExpr, value);
+
+	return (Node *) n;
 }

@@ -30,6 +30,8 @@ extern int	backslash_quote;
 extern bool escape_string_warning;
 extern PGDLLIMPORT bool standard_conforming_strings;
 
+extern void enter_json_expression();
+extern void exit_json_expression();
 
 /* Primary entry point for the raw parsing functions */
 extern List *raw_parser(const char *str);

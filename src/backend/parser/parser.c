@@ -24,6 +24,19 @@
 #include "parser/gramparse.h"
 #include "parser/parser.h"
 
+static int json_expression_stack = 0;
+
+void
+enter_json_expression()
+{
+	json_expression_stack++;
+}
+
+void
+exit_json_expression()
+{
+	json_expression_stack--;
+}
 
 /*
  * raw_parser
@@ -48,6 +61,8 @@ raw_parser(const char *str)
 
 	/* initialize the bison parser */
 	parser_init(&yyextra);
+
+	json_expression_stack = 0;
 
 	/* Parse! */
 	yyresult = base_yyparse(yyscanner);
@@ -116,6 +131,14 @@ base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, core_yyscan_t yyscanner)
 			break;
 		case WITH:
 			cur_token_length = 4;
+			break;
+		case WITHOUT:
+			cur_token_length = 7;
+			break;
+		case FORMAT:
+			if (!json_expression_stack)
+				return cur_token;
+			cur_token_length = 6;
 			break;
 		default:
 			return cur_token;
@@ -187,6 +210,30 @@ base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, core_yyscan_t yyscanner)
 				case TIME:
 				case ORDINALITY:
 					cur_token = WITH_LA;
+					break;
+				case UNIQUE:
+					cur_token = WITH_LA_UNIQUE;
+					break;
+			}
+			break;
+
+		case WITHOUT:
+			/* Replace WITHOUT by WITHOUT_LA if it's followed by TIME */
+			switch (next_token)
+			{
+				case TIME:
+					cur_token = WITHOUT_LA;
+					break;
+			}
+			break;
+
+		case FORMAT:
+			/* Replace FORMAT by FORMAT_LA if it's followed by JSON */
+			switch (next_token)
+			{
+				case JSON:
+				case JSONB:
+					cur_token = FORMAT_LA;
 					break;
 			}
 			break;

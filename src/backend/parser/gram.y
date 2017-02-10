@@ -241,6 +241,7 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 	PartitionSpec		*partspec;
 	PartitionRangeDatum	*partrange_datum;
 	RoleSpec			*rolespec;
+	JsonFormat			 jsformat;
 }
 
 %type <node>	stmt schema_stmt
@@ -582,6 +583,101 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 %type <partrange_datum>	PartitionRangeDatum
 %type <list>		range_datum_list
 
+%type <node>		json_value_expr
+					json_func_expr
+					json_value_func_expr
+					json_query_expr
+					json_exists_predicate
+					json_api_common_syntax
+					json_context_item
+					json_argument
+					json_value_empty_behavior_clause_opt
+					json_value_error_behavior_clause_opt
+					json_value_behavior
+					json_query_empty_behavior_clause_opt
+					json_query_error_behavior_clause_opt
+					json_query_behavior
+					json_table
+					json_table_column_definition
+					json_table_ordinality_column_definition
+					json_table_regular_column_definition
+					json_table_column_empty_behavior_clause_opt
+					json_table_column_error_behavior_clause_opt
+					json_table_column_behavior
+					json_table_formatted_column_definition
+					json_table_nested_columns
+					json_table_plan_clause_opt
+					json_table_specific_plan
+					json_table_plan
+					json_table_plan_simple
+					json_table_plan_parent_child
+					json_table_plan_outer
+					json_table_plan_inner
+					json_table_plan_sibling
+					json_table_plan_union
+					json_table_plan_cross
+					json_table_plan_primary
+					json_table_default_plan
+					json_table_primitive
+					json_table_primitive_column_definition
+					json_table_primitive_chaining_column
+					json_output_clause_opt
+					json_value_constructor
+					json_object_constructor
+					json_object_constructor_args_opt
+					json_object_args
+					json_object_ctor_args_opt
+					json_object_func_args
+					json_array_constructor
+					json_array_constructor_by_enumeration
+					json_array_constructor_by_enumeration_args_opt
+					json_array_constructor_by_query
+					json_name_and_value
+					json_name
+					json_aggregate_func
+					json_object_aggregate_constructor
+					json_array_aggregate_constructor
+
+%type <list>		json_arguments
+					json_passing_clause_opt
+					json_table_columns_clause
+					json_table_column_definition_list
+					json_table_primitive_columns_clause
+					json_table_primitive_column_definition_list
+					json_name_and_value_list
+					json_value_expr_list
+					json_array_aggregate_order_by_clause_opt
+
+%type <typnam>		json_returning_clause_opt
+
+%type <str>			json_path_specification
+					json_table_column_path_specification_clause_opt
+					json_table_path_name
+					json_as_path_name_clause_opt
+
+%type <ival>		json_encoding
+					json_encoding_clause_opt
+					json_table_default_plan_choices
+					json_table_default_plan_inner_outer
+					json_table_default_plan_union_cross
+					json_wrapper_clause_opt
+					json_quotes_clause_opt
+					json_wrapper_behavior
+					json_conditional_or_unconditional_opt
+					json_predicate_type_constraint_opt
+					json_table_error_behavior
+					json_table_error_clause_opt
+					json_exists_error_behavior
+					json_exists_error_clause_opt
+
+%type <jsformat>	json_format_clause_opt
+					json_representation
+
+%type <boolean>		json_quotes_behavior
+					json_key_uniqueness_constraint_opt
+					json_object_constructor_null_clause_opt
+					json_array_constructor_null_clause_opt
+
 /*
  * Non-keyword token types.  These are hard-wired into the "flex" lexer.
  * They must be listed first so that their numeric codes do not depend on
@@ -604,18 +700,18 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
  */
 
 /* ordinary key words in alphabetical order */
-%token <keyword> ABORT_P ABSOLUTE_P ACCESS ACTION ADD_P ADMIN AFTER
+%token <keyword> ABORT_P ABSENT ABSOLUTE_P ACCESS ACTION ADD_P ADMIN AFTER
 	AGGREGATE ALL ALSO ALTER ALWAYS ANALYSE ANALYZE AND ANY ARRAY AS ASC
 	ASSERTION ASSIGNMENT ASYMMETRIC AT ATTACH ATTRIBUTE AUTHORIZATION
 
 	BACKWARD BEFORE BEGIN_P BETWEEN BIGINT BINARY BIT
 	BOOLEAN_P BOTH BY
 
-	CACHE CALLED CASCADE CASCADED CASE CAST CATALOG_P CHAIN CHAR_P
+	CACHE CALLED CASCADE CASCADED CASE CAST CATALOG_P CHAIN CHAINING CHAR_P
 	CHARACTER CHARACTERISTICS CHECK CHECKPOINT CLASS CLOSE
 	CLUSTER COALESCE COLLATE COLLATION COLUMN COLUMNS COMMENT COMMENTS COMMIT
-	COMMITTED CONCURRENTLY CONFIGURATION CONFLICT CONNECTION CONSTRAINT
-	CONSTRAINTS CONTENT_P CONTINUE_P CONVERSION_P COPY COST CREATE
+	COMMITTED CONCURRENTLY CONDITIONAL CONFIGURATION CONFLICT CONNECTION
+	CONSTRAINT CONSTRAINTS CONTENT_P CONTINUE_P CONVERSION_P COPY COST CREATE
 	CROSS CSV CUBE CURRENT_P
 	CURRENT_CATALOG CURRENT_DATE CURRENT_ROLE CURRENT_SCHEMA
 	CURRENT_TIME CURRENT_TIMESTAMP CURRENT_USER CURSOR CYCLE
@@ -625,12 +721,12 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 	DETACH DICTIONARY DISABLE_P DISCARD DISTINCT DO DOCUMENT_P DOMAIN_P
 	DOUBLE_P DROP
 
-	EACH ELSE ENABLE_P ENCODING ENCRYPTED END_P ENUM_P ESCAPE EVENT EXCEPT
-	EXCLUDE EXCLUDING EXCLUSIVE EXECUTE EXISTS EXPLAIN
+	EACH ELSE EMPTY_P ENABLE_P ENCODING ENCRYPTED END_P ENUM_P ERROR_P ESCAPE
+	EVENT EXCEPT EXCLUDE EXCLUDING EXCLUSIVE EXECUTE EXISTS EXPLAIN
 	EXTENSION EXTERNAL EXTRACT
 
 	FALSE_P FAMILY FETCH FILTER FIRST_P FLOAT_P FOLLOWING FOR
-	FORCE FOREIGN FORWARD FREEZE FROM FULL FUNCTION FUNCTIONS
+	FORCE FOREIGN FORMAT FORWARD FREEZE FROM FULL FUNCTION FUNCTIONS
 
 	GENERATED GLOBAL GRANT GRANTED GREATEST GROUP_P GROUPING
 
@@ -641,9 +737,10 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 	INNER_P INOUT INPUT_P INSENSITIVE INSERT INSTEAD INT_P INTEGER
 	INTERSECT INTERVAL INTO INVOKER IS ISNULL ISOLATION
 
-	JOIN
+	JOIN JSON JSON_ARRAY JSON_ARRAYAGG JSON_EXISTS JSON_OBJECT JSON_OBJECTAGG
+	JSON_QUERY JSON_TABLE JSON_TABLE_PRIMITIVE JSON_VALUE JSONB
 
-	KEY
+	KEY KEYS KEEP
 
 	LABEL LANGUAGE LARGE_P LAST_P LATERAL_P
 	LEADING LEAKPROOF LEAST LEFT LEVEL LIKE LIMIT LISTEN LOAD LOCAL
@@ -651,36 +748,37 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 
 	MAPPING MATCH MATERIALIZED MAXVALUE METHOD MINUTE_P MINVALUE MODE MONTH_P MOVE
 
-	NAME_P NAMES NATIONAL NATURAL NCHAR NEW NEXT NO NONE
+	NAME_P NAMES NATIONAL NATURAL NCHAR NESTED NEW NEXT NO NONE
 	NOREFRESH NOT NOTHING NOTIFY NOTNULL NOWAIT NULL_P NULLIF
 	NULLS_P NUMERIC
 
-	OBJECT_P OF OFF OFFSET OIDS OLD ON ONLY OPERATOR OPTION OPTIONS OR
+	OBJECT_P OF OFF OFFSET OIDS OLD OMIT ON ONLY OPERATOR OPTION OPTIONS OR
 	ORDER ORDINALITY OUT_P OUTER_P OVER OVERLAPS OVERLAY OVERRIDING OWNED OWNER
 
-	PARALLEL PARSER PARTIAL PARTITION PASSING PASSWORD PLACING PLANS POLICY
-	POSITION PRECEDING PRECISION PRESERVE PREPARE PREPARED PRIMARY
+	PARALLEL PARSER PARTIAL PARTITION PASSING PASSWORD PATH PLACING PLAN PLANS
+	POLICY POSITION PRECEDING PRECISION PRESERVE PREPARE PREPARED PRIMARY
 	PRIOR PRIVILEGES PROCEDURAL PROCEDURE PROGRAM PUBLICATION
 
-	QUOTE
+	QUOTE QUOTES
 
 	RANGE READ REAL REASSIGN RECHECK RECURSIVE REF REFERENCES REFERENCING
 	REFRESH REINDEX RELATIVE_P RELEASE RENAME REPEATABLE REPLACE REPLICA
 	RESET RESTART RESTRICT RETURNING RETURNS REVOKE RIGHT ROLE ROLLBACK ROLLUP
 	ROW ROWS RULE
 
-	SAVEPOINT SCHEMA SCHEMAS SCROLL SEARCH SECOND_P SECURITY SELECT SEQUENCE SEQUENCES
-	SERIALIZABLE SERVER SESSION SESSION_USER SET SETS SETOF SHARE SHOW
+	SAVEPOINT SCALAR SCHEMA SCHEMAS SCROLL SEARCH SECOND_P SECURITY SELECT
+	SEQUENCE SEQUENCES SERIALIZABLE SERVER SESSION SESSION_USER SET SETS SETOF
+	SHARE SHOW
 	SIMILAR SIMPLE SKIP SLOT SMALLINT SNAPSHOT SOME SQL_P STABLE STANDALONE_P
-	START STATEMENT STATISTICS STDIN STDOUT STORAGE STRICT_P STRIP_P
+	START STATEMENT STATISTICS STDIN STDOUT STORAGE STRICT_P STRING STRIP_P
 	SUBSCRIPTION SUBSTRING SYMMETRIC SYSID SYSTEM_P
 
 	TABLE TABLES TABLESAMPLE TABLESPACE TEMP TEMPLATE TEMPORARY TEXT_P THEN
 	TIME TIMESTAMP TO TRAILING TRANSACTION TRANSFORM TREAT TRIGGER TRIM TRUE_P
 	TRUNCATE TRUSTED TYPE_P TYPES_P
 
-	UNBOUNDED UNCOMMITTED UNENCRYPTED UNION UNIQUE UNKNOWN UNLISTEN UNLOGGED
-	UNTIL UPDATE USER USING
+	UNBOUNDED UNCOMMITTED UNCONDITIONAL UNENCRYPTED UNION UNIQUE UNKNOWN
+	UNLISTEN UNLOGGED UNTIL UPDATE USER USING
 
 	VACUUM VALID VALIDATE VALIDATOR VALUE_P VALUES VARCHAR VARIADIC VARYING
 	VERBOSE VERSION_P VIEW VIEWS VOLATILE
@@ -704,11 +802,12 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
  * as NOT, at least with respect to their left-hand subexpression.
  * NULLS_LA and WITH_LA are needed to make the grammar LALR(1).
  */
-%token		NOT_LA NULLS_LA WITH_LA
+%token		NOT_LA NULLS_LA WITH_LA WITH_LA_UNIQUE WITHOUT_LA FORMAT_LA
 
 
 /* Precedence: lowest to highest */
 %nonassoc	SET				/* see relation_expr_opt_alias */
+%right		FORMAT
 %left		UNION EXCEPT
 %left		INTERSECT
 %left		OR
@@ -746,6 +845,7 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
  * blame any funny behavior of UNBOUNDED on the SQL standard, though.
  */
 %nonassoc	UNBOUNDED		/* ideally should have same precedence as IDENT */
+%nonassoc	ERROR_P EMPTY_P DEFAULT ABSENT /* JSON error/empty behavior */
 %nonassoc	IDENT GENERATED NULL_P PARTITION RANGE ROWS PRECEDING FOLLOWING CUBE ROLLUP
 %left		Op OPERATOR		/* multi-character ops and user-defined operators */
 %left		'+' '-'
@@ -769,6 +869,13 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 %left		JOIN CROSS LEFT FULL RIGHT INNER_P NATURAL
 /* kluge to keep xml_whitespace_option from causing shift/reduce conflicts */
 %right		PRESERVE STRIP_P
+
+%nonassoc	json_table_column
+%nonassoc	NESTED
+%left		PATH
+
+%nonassoc	empty_json_unique
+%left		WITHOUT WITH_LA_UNIQUE
 
 %%
 
@@ -11532,6 +11639,14 @@ table_ref:	relation_expr opt_alias_clause
 					$2->alias = $4;
 					$$ = (Node *) $2;
 				}
+			| json_table
+				{
+					$$ = $1;
+				}
+			| json_table_primitive
+				{
+					$$ = $1;
+				}
 		;
 
 
@@ -12029,6 +12144,8 @@ xmltable_column_option_list:
 xmltable_column_option_el:
 			IDENT b_expr
 				{ $$ = makeDefElem($1, $2, @1); }
+			| PATH b_expr
+				{ $$ = makeDefElem("path", $2, @1); }
 			| DEFAULT b_expr
 				{ $$ = makeDefElem("default", $2, @1); }
 			| NOT NULL_P
@@ -12446,7 +12563,7 @@ ConstInterval:
 
 opt_timezone:
 			WITH_LA TIME ZONE						{ $$ = TRUE; }
-			| WITHOUT TIME ZONE						{ $$ = FALSE; }
+			| WITHOUT_LA TIME ZONE					{ $$ = FALSE; }
 			| /*EMPTY*/								{ $$ = FALSE; }
 		;
 
@@ -12947,6 +13064,21 @@ a_expr:		c_expr									{ $$ = $1; }
 												 list_make1($1), @2),
 									 @2);
 				}
+			| a_expr
+				// json_format_clause_opt
+				IS JSON json_predicate_type_constraint_opt
+					json_key_uniqueness_constraint_opt		%prec IS
+				{
+					$$ = $1; /* FIXME!!! */
+				}
+			| a_expr
+				// json_format_clause_opt
+				IS NOT JSON
+					json_predicate_type_constraint_opt
+					json_key_uniqueness_constraint_opt		%prec IS
+				{
+					$$ = makeNotExpr($1, @1);; /* FIXME!!! */
+				}
 			| DEFAULT
 				{
 					/*
@@ -12961,6 +13093,25 @@ a_expr:		c_expr									{ $$ = $1; }
 					n->location = @1;
 					$$ = (Node *)n;
 				}
+		;
+
+json_predicate_type_constraint_opt:
+			VALUE_P									{ $$ = 0; }
+			| ARRAY									{ $$ = 1; }
+			| OBJECT_P								{ $$ = 2; }
+			| SCALAR								{ $$ = 3; }
+			| /* EMPTY */							{ $$ = 0; }
+		;
+
+json_key_uniqueness_constraint_opt:
+			WITH_LA_UNIQUE UNIQUE opt_keys			{ $$ = TRUE; }
+			| WITHOUT UNIQUE opt_keys				{ $$ = FALSE; }
+			| /* EMPTY */ %prec empty_json_unique	{ $$ = FALSE; }
+		;
+
+opt_keys:
+			KEYS									{ }
+			| /* EMPTY */							{ }
 		;
 
 /*
@@ -13299,6 +13450,12 @@ func_expr: func_application within_group_clause filter_clause over_clause
 					n->over = $4;
 					$$ = (Node *) n;
 				}
+			| json_aggregate_func filter_clause
+				{
+					JsonAggCtor *n = (JsonAggCtor *) $1;
+					n->agg_filter = $2;
+					$$ = (Node *) $1;
+				}
 			| func_expr_common_subexpr
 				{ $$ = $1; }
 		;
@@ -13312,6 +13469,7 @@ func_expr: func_application within_group_clause filter_clause over_clause
 func_expr_windowless:
 			func_application						{ $$ = $1; }
 			| func_expr_common_subexpr				{ $$ = $1; }
+			| json_aggregate_func					{ $$ = $1; }
 		;
 
 /*
@@ -13533,6 +13691,8 @@ func_expr_common_subexpr:
 					n->location = @1;
 					$$ = (Node *)n;
 				}
+			| json_func_expr
+				{ $$ = $1; }
 		;
 
 /*
@@ -14219,6 +14379,737 @@ opt_asymmetric: ASYMMETRIC
 			| /*EMPTY*/
 		;
 
+/* SQL/JSON support */
+json_func_expr:
+			json_value_func_expr
+			| json_query_expr
+			| json_exists_predicate
+			| json_value_constructor
+		;
+
+
+json_value_func_expr:
+			JSON_VALUE '('
+				{ enter_json_expression(); }
+							json_api_common_syntax
+							json_returning_clause_opt
+							json_value_empty_behavior_clause_opt
+							json_value_error_behavior_clause_opt ')'
+				{
+					JsonValueFunc *n = makeNode(JsonValueFunc);
+					n->common = (JsonCommon *) $4;
+					n->returning = $5;
+					n->on_empty = (JsonBehavior *) $6;
+					n->on_error = (JsonBehavior *) $7;
+					$$ = (Node *) n;
+					exit_json_expression();
+				}
+		;
+
+json_api_common_syntax:
+			json_context_item ',' json_path_specification
+			json_as_path_name_clause_opt
+			json_passing_clause_opt
+				{
+					JsonCommon *n = makeNode(JsonCommon);
+					n->expr = (JsonValueExpr *) $1;
+					n->pathspec = $3;
+					n->as_path = $4;
+					n->passing = $5;
+					$$ = (Node *) n;
+				}
+		;
+
+json_context_item:
+			json_value_expr							{ $$ = $1; }
+		;
+
+json_path_specification:
+			Sconst									{ $$ = $1; }
+		;
+
+json_as_path_name_clause_opt:
+			 AS json_table_path_name				{ $$ = $2; }
+			 | /* EMPTY */							{ $$ = NULL; }
+		;
+
+json_table_path_name:
+			name									{ $$ = $1; }
+		;
+
+json_passing_clause_opt:
+			PASSING json_arguments					{ $$ = $2; }
+			| /* EMPTY */							{ $$ = NIL; }
+		;
+
+json_arguments:
+			json_argument							{ $$ = list_make1($1); }
+			| json_arguments ',' json_argument		{ $$ = lappend($1, $3); }
+		;
+
+json_argument:
+			json_value_expr AS name
+			{
+				JsonArgument *n = makeNode(JsonArgument);
+				n->val = (JsonValueExpr *) $1;
+				n->name = $3;
+				$$ = (Node *) n;
+			}
+		;
+
+json_value_expr:
+			a_expr json_format_clause_opt
+			{
+				JsonValueExpr *n = makeNode(JsonValueExpr);
+				n->expr = (Expr *) $1;
+				n->format = $2;
+				$$ = (Node *) n;
+			}
+		;
+
+json_format_clause_opt:
+			FORMAT_LA json_representation			{ $$ = $2; }
+			| /* EMPTY */							{ $$.type = JS_FORMAT_DEFAULT; }
+		;
+
+json_representation:
+			JSON json_encoding_clause_opt
+				{
+					$$.type = JS_FORMAT_JSON;
+					$$.encoding = $2;
+				}
+			| JSONB
+				{
+					$$.type = JS_FORMAT_JSONB;
+				}
+		/*	| implementation_defined_JSON_representation_option (BSON, AVRO etc) */
+		;
+
+json_encoding_clause_opt:
+			ENCODING json_encoding					{ $$ = $2; }
+			| /* EMPTY */							{ $$ = JS_ENC_DEFAULT; }
+		;
+
+json_encoding:
+			name									{ $$ = makeJsonEncoding($1); }
+	/*
+			| UTF8									{ $$ = JS_ENC_UTF8; }
+			| UTF16									{ $$ = JS_ENC_UTF16; }
+			| UTF32 								{ $$ = JS_ENC_UTF32; }
+	*/
+		;
+
+json_returning_clause_opt:
+			RETURNING Typename						{ $$ = $2; }
+			| /* EMPTY */							{ $$ = NULL; }
+		;
+
+json_value_empty_behavior_clause_opt:
+			json_value_behavior ON EMPTY_P			{ $$ = $1; }
+			| /* EMPTY */	%prec POSTFIXOP			{ $$ = NULL; }
+		;
+
+json_value_error_behavior_clause_opt:
+			json_value_behavior ON ERROR_P			{ $$ = $1; }
+			| /* EMPTY */	%prec POSTFIXOP			{ $$ = NULL; }
+		;
+
+json_value_behavior:
+			NULL_P				{ $$ = makeJsonBehavior(JSON_BEHAVIOR_NULL, NULL); }
+			| ERROR_P			{ $$ = makeJsonBehavior(JSON_BEHAVIOR_ERROR, NULL); }
+			| DEFAULT a_expr	{ $$ = makeJsonBehavior(JSON_BEHAVIOR_DEFAULT, $2); }
+		;
+
+json_query_expr:
+			JSON_QUERY '('
+				{ enter_json_expression(); }
+							json_api_common_syntax
+							json_output_clause_opt
+							json_wrapper_clause_opt
+							json_quotes_clause_opt
+							json_query_empty_behavior_clause_opt
+							json_query_error_behavior_clause_opt
+						')'
+				{
+					JsonQueryFunc *n = makeNode(JsonQueryFunc);
+					n->common = (JsonCommon *) $4;
+					n->output = (JsonOutput *) $5;
+					n->wrapper = $6;
+					n->quotes = $7;
+					n->on_empty = (JsonBehavior *) $8;
+					n->on_error = (JsonBehavior *) $9;
+					$$ = (Node *) n;
+					exit_json_expression();
+				}
+		;
+
+json_wrapper_clause_opt:
+			json_wrapper_behavior WRAPPER			{ $$ = $1; }
+			| /* EMPTY */							{ $$ = 0; }
+		;
+
+json_wrapper_behavior:
+			WITHOUT array_opt						{ $$ = JSW_NONE; }
+			| WITH json_conditional_or_unconditional_opt array_opt { $$ = $2; }
+		;
+
+array_opt:
+			ARRAY									{ }
+			| /* EMPTY */							{ }
+		;
+
+json_conditional_or_unconditional_opt:
+			CONDITIONAL								{ $$ = JSW_CONDITIONAL; }
+			| UNCONDITIONAL							{ $$ = JSW_UNCONDITIONAL; }
+			| /* EMPTY */							{ $$ = JSW_UNCONDITIONAL; }
+		;
+
+json_quotes_clause_opt:
+			json_quotes_behavior QUOTES json_on_scalar_string_opt { $$ = $1; }
+			| /* EMPTY */							{ $$ = TRUE; }
+		;
+
+json_quotes_behavior:
+			KEEP									{ $$ = TRUE; }
+			| OMIT									{ $$ = FALSE; }
+		;
+
+json_on_scalar_string_opt:
+			ON SCALAR STRING						{ }
+			| /* EMPTY */							{ }
+		;
+
+json_query_empty_behavior_clause_opt:
+			json_query_behavior ON EMPTY_P			{ $$ = $1; }
+			| /* EMPTY */	%prec POSTFIXOP			{ $$ = NULL; }
+		;
+
+json_query_error_behavior_clause_opt:
+			json_query_behavior ON ERROR_P			{ $$ = $1; }
+			| /* EMPTY */	%prec POSTFIXOP			{ $$ = NULL; }
+		;
+
+json_query_behavior:
+			ERROR_P				{ $$ = makeJsonBehavior(JSON_BEHAVIOR_ERROR, NULL); }
+			| NULL_P			{ $$ = makeJsonBehavior(JSON_BEHAVIOR_NULL, NULL); }
+			| EMPTY_P ARRAY		{ $$ = makeJsonBehavior(JSON_BEHAVIOR_EMPTY_ARRAY, NULL); }
+			| EMPTY_P OBJECT_P	{ $$ = makeJsonBehavior(JSON_BEHAVIOR_EMPTY_OBJECT, NULL); }
+		;
+
+json_table:
+			JSON_TABLE '('
+				{ enter_json_expression(); }
+							json_api_common_syntax
+							json_table_columns_clause
+							json_table_plan_clause_opt
+							json_table_error_clause_opt ')'
+				{
+					JsonTableFunc *n = makeNode(JsonTableFunc);
+					n->common = (JsonCommon *) $4;
+					n->columns = $5;
+					n->plan = $6;
+					n->on_error = $7;
+					$$ = (Node *) n;
+					exit_json_expression();
+				}
+		;
+
+json_table_columns_clause:
+			COLUMNS '('	json_table_column_definition_list ')' { $$ = $3; }
+		;
+
+json_table_column_definition_list:
+			json_table_column_definition
+				{ $$ = list_make1($1); }
+			| json_table_column_definition_list ',' json_table_column_definition
+				{ $$ = lappend($1, $3); }
+		;
+
+json_table_column_definition:
+			json_table_ordinality_column_definition		%prec json_table_column
+			| json_table_regular_column_definition 		%prec json_table_column
+			| json_table_formatted_column_definition	%prec json_table_column
+			| json_table_nested_columns
+		;
+
+json_table_ordinality_column_definition:
+			ColId FOR ORDINALITY
+				{
+					JsonTableColumn *n = makeNode(JsonTableColumn);
+					n->coltype = JTC_FOR_ORDINALITY;
+					n->name = $1;
+					$$ = (Node *) n;
+				}
+		;
+
+json_table_regular_column_definition:
+			ColId Typename
+			json_table_column_path_specification_clause_opt
+			json_table_column_empty_behavior_clause_opt
+			json_table_column_error_behavior_clause_opt
+				{
+					JsonTableColumn *n = makeNode(JsonTableColumn);
+					n->coltype = JTC_REGULAR;
+					n->name = $1;
+					n->typename = $2;
+					n->pathspec = $3;
+					n->on_empty = (JsonBehavior *) $4;
+					n->on_error = (JsonBehavior *) $5;
+					$$ = (Node *) n;
+				}
+		;
+
+json_table_error_clause_opt:
+			json_table_error_behavior ON ERROR_P	{ $$ = $1; }
+			| /* EMPTY */	%prec POSTFIXOP		{ $$ = JSON_BEHAVIOR_EMPTY; }
+		;
+
+json_table_column_empty_behavior_clause_opt:
+			json_table_column_behavior ON EMPTY_P	{ $$ = $1; }
+			| /* EMPTY */	%prec POSTFIXOP
+				{ $$ = makeJsonBehavior(JSON_BEHAVIOR_NULL, NULL); }
+		;
+
+json_table_column_error_behavior_clause_opt:
+			json_table_column_behavior ON ERROR_P	{ $$ = $1; }
+			| /* EMPTY */	%prec POSTFIXOP
+				{ $$ = NULL; } /* depends on json table error behavior */
+		;
+
+json_table_column_behavior:
+			ERROR_P				{ $$ = makeJsonBehavior(JSON_BEHAVIOR_ERROR, NULL); }
+			| NULL_P			{ $$ = makeJsonBehavior(JSON_BEHAVIOR_NULL, NULL); }
+			| DEFAULT a_expr	{ $$ = makeJsonBehavior(JSON_BEHAVIOR_DEFAULT, $2); }
+		;
+
+json_table_column_path_specification_clause_opt:
+			PATH json_path_specification			{ $$ = $2; }
+			| /* EMPTY */ %prec json_table_column	{ $$ = NULL; }
+		;
+
+json_table_formatted_column_definition:
+			ColId Typename FORMAT_LA json_representation
+			json_table_column_path_specification_clause_opt
+			json_wrapper_clause_opt
+			json_quotes_clause_opt
+			json_query_empty_behavior_clause_opt
+			json_query_error_behavior_clause_opt
+				{
+					JsonTableColumn *n = makeNode(JsonTableColumn);
+					n->coltype = JTC_FORMATTED;
+					n->name = $1;
+					n->typename = $2;
+					n->format = $4;
+					n->pathspec = $5;
+					n->wrapper = $6;
+					n->quotes = $7;
+					n->on_empty = (JsonBehavior *) $8;
+					n->on_error = (JsonBehavior *) $9;
+					$$ = (Node *) n;
+				}
+		;
+
+json_table_nested_columns:
+			NESTED path_opt json_path_specification
+							json_as_path_name_clause_opt
+							json_table_columns_clause
+				{
+					JsonTableColumn *n = makeNode(JsonTableColumn);
+					n->coltype = JTC_NESTED;
+					n->pathspec = $3;
+					n->aspath = $4;
+					n->columns = $5;
+					$$ = (Node *) n;
+				}
+		;
+
+path_opt:
+			PATH									{ }
+			| /* EMPTY */							{ }
+		;
+
+json_table_plan_clause_opt:
+			json_table_specific_plan				{ $$ = $1; }
+			| json_table_default_plan				{ $$ = $1; }
+			| /* EMPTY */							{ $$ = NULL; }
+		;
+
+json_table_specific_plan:
+			PLAN '(' json_table_plan ')'			{ $$ = $3; }
+		;
+
+json_table_plan:
+			json_table_plan_simple
+			| json_table_plan_parent_child
+			| json_table_plan_sibling
+		;
+
+json_table_plan_simple:
+			json_table_path_name
+				{
+					JsonTableSimplePlan *n = makeNode(JsonTableSimplePlan);
+					n->name = $1;
+					$$ = (Node *) n;
+				}
+		;
+
+json_table_plan_parent_child:
+			json_table_plan_outer
+			| json_table_plan_inner
+		;
+
+json_table_plan_outer:
+			json_table_plan_simple OUTER_P json_table_plan_primary
+				{ $$ = makeJsonTableJoinedPlan(JSTP_OUTER, $1, $3); }
+		;
+
+json_table_plan_inner:
+			json_table_plan_simple INNER_P json_table_plan_primary
+				{ $$ = makeJsonTableJoinedPlan(JSTP_INNER, $1, $3); }
+		;
+
+json_table_plan_sibling:
+			json_table_plan_union
+			| json_table_plan_cross
+		;
+
+json_table_plan_union:
+			json_table_plan_primary UNION json_table_plan_primary
+				{ $$ = makeJsonTableJoinedPlan(JSTP_UNION, $1, $3); }
+			| json_table_plan_union UNION json_table_plan_primary
+				{ $$ = makeJsonTableJoinedPlan(JSTP_UNION, $1, $3); }
+		;
+
+json_table_plan_cross:
+			json_table_plan_primary CROSS json_table_plan_primary
+				{ $$ = makeJsonTableJoinedPlan(JSTP_CROSS, $1, $3); }
+			| json_table_plan_cross CROSS json_table_plan_primary
+				{ $$ = makeJsonTableJoinedPlan(JSTP_CROSS, $1, $3); }
+		;
+
+json_table_plan_primary:
+			json_table_plan_simple						{ $$ = $1; }
+			| '(' json_table_plan ')'					{ $$ = $2; }
+		;
+
+json_table_default_plan:
+			PLAN DEFAULT '(' json_table_default_plan_choices ')'
+			{
+				JsonTableDefaultPlan *n = makeNode(JsonTableDefaultPlan);
+				n->plantype = $4;
+				$$ = (Node *) n;
+			}
+		;
+
+json_table_default_plan_choices:
+			json_table_default_plan_inner_outer			{ $$ = $1; }
+			| json_table_default_plan_inner_outer ','
+			  json_table_default_plan_union_cross		{ $$ = $1 | $3; }
+			| json_table_default_plan_union_cross		{ $$ = $1; }
+			| json_table_default_plan_union_cross ','
+			  json_table_default_plan_inner_outer		{ $$ = $1 | $3; }
+		;
+
+json_table_default_plan_inner_outer:
+			INNER_P										{ $$ = 1; }
+			| OUTER_P									{ $$ = 0; }
+		;
+
+json_table_default_plan_union_cross:
+			UNION										{ $$ = 2; }
+			| CROSS										{ $$ = 0; }
+		;
+
+json_table_error_behavior:
+			ERROR_P								{ $$ = JSON_BEHAVIOR_ERROR; }
+			| EMPTY_P							{ $$ = JSON_BEHAVIOR_EMPTY; }
+		;
+
+json_table_primitive:
+			JSON_TABLE_PRIMITIVE '('
+				{ enter_json_expression(); }
+					json_api_common_syntax
+					json_table_primitive_columns_clause
+					json_table_error_behavior ON ERROR_P ')'
+				{
+					JsonTablePrimitive *n = makeNode(JsonTablePrimitive);
+					n->common = (JsonCommon *) $4;
+					n->columns = $5;
+					n->on_error = $6;
+					$$ = (Node *) n;
+					exit_json_expression();
+				}
+		;
+
+json_table_primitive_columns_clause:
+			COLUMNS '(' json_table_primitive_column_definition_list ')'
+				{ $$ = $3; }
+		;
+
+json_table_primitive_column_definition_list:
+			json_table_primitive_column_definition
+				{ $$ = list_make1($1); }
+			| json_table_primitive_column_definition_list ','
+			  json_table_primitive_column_definition
+				{ $$ = lappend($1, $3); }
+		;
+
+json_table_primitive_column_definition:
+			json_table_ordinality_column_definition
+			| json_table_regular_column_definition
+			| json_table_formatted_column_definition
+			| json_table_primitive_chaining_column
+		;
+
+json_table_primitive_chaining_column:
+			ColId FOR CHAINING
+			{
+				JsonTableColumn *n = makeNode(JsonTableColumn);
+				n->coltype = JTC_CHAINING;
+				n->name = $1;
+				$$ = (Node *) n;
+			}
+		;
+
+json_output_clause_opt:
+			RETURNING Typename json_format_clause_opt
+				{
+					JsonOutput *n = makeNode(JsonOutput);
+					n->typename = $2;
+					n->format = $3;
+					$$ = (Node *) n;
+				}
+			| /* EMPTY */								{ $$ = NULL; }
+		;
+
+json_exists_predicate:
+			JSON_EXISTS '('
+				{ enter_json_expression(); }
+							json_api_common_syntax
+							json_exists_error_clause_opt ')'
+				{
+					JsonExistsPredicate *p = makeNode(JsonExistsPredicate);
+					p->common = (JsonCommon *) $4;
+					p->on_error = $5;
+					$$ = (Node *) p;
+					exit_json_expression();
+				}
+		;
+
+json_exists_error_clause_opt:
+			json_exists_error_behavior ON ERROR_P	{ $$ = $1; }
+			| /* EMPTY */						{ $$ = JSON_BEHAVIOR_FALSE; }
+		;
+
+json_exists_error_behavior:
+			TRUE_P 								{ $$ = JSON_BEHAVIOR_TRUE; }
+			| FALSE_P 							{ $$ = JSON_BEHAVIOR_FALSE; }
+			| UNKNOWN 							{ $$ = JSON_BEHAVIOR_UNKNOWN; }
+			| ERROR_P							{ $$ = JSON_BEHAVIOR_ERROR; }
+		;
+
+json_value_constructor:
+			json_object_constructor
+			| json_array_constructor
+		;
+
+json_object_constructor:
+			JSON_OBJECT { enter_json_expression(); } '(' json_object_args ')'
+				{
+					$$ = $4;
+					exit_json_expression();
+				}
+		;
+
+json_object_args:
+			json_object_ctor_args_opt
+			| json_object_func_args
+		;
+
+json_object_func_args:
+			func_arg_list
+				{
+					List *func = list_make1(makeString("json_object"));
+					$$ = (Node *) makeFuncCall(func, $1, @1);
+				}
+		;
+
+json_object_ctor_args_opt:
+			json_object_constructor_args_opt json_output_clause_opt
+				{
+					JsonObjectCtor *n = (JsonObjectCtor *) $1;
+					n->output = (JsonOutput *) $2;
+					n->location = @1;
+					$$ = (Node *) n;
+				}
+		;
+
+json_object_constructor_args_opt:
+			json_name_and_value_list
+			json_object_constructor_null_clause_opt
+			json_key_uniqueness_constraint_opt
+				{
+					JsonObjectCtor *n = makeNode(JsonObjectCtor);
+					n->exprs = $1;
+					n->absent_on_null = $2;
+					n->unique = $3;
+					$$ = (Node *) n;
+				}
+			| /* EMPTY */
+				{
+					JsonObjectCtor *n = makeNode(JsonObjectCtor);
+					n->exprs = NULL;
+					n->absent_on_null = FALSE;
+					n->unique = FALSE;
+					$$ = (Node *) n;
+				}
+		;
+
+json_name_and_value_list:
+			json_name_and_value
+				{ $$ = list_make1($1); }
+			| json_name_and_value_list ',' json_name_and_value
+				{ $$ = lappend($1, $3); }
+		;
+
+json_name_and_value:
+//			opt_key json_name VALUE_P json_value_expr
+//				{ $$ = makeJsonKeyValue($2, $4); }
+//			|
+			json_name ':' json_value_expr
+				{ $$ = makeJsonKeyValue($1, $3); }
+		;
+
+// opt_key:
+//			KEY										{ }
+//			| /* EMPTY */							{ }
+//		;
+
+json_name:
+			a_expr
+		;
+
+json_object_constructor_null_clause_opt:
+			NULL_P ON NULL_P						{ $$ = FALSE; }
+			| ABSENT ON NULL_P						{ $$ = TRUE; }
+			| /* EMPTY */	%prec POSTFIXOP			{ $$ = FALSE; }
+		;
+
+json_array_constructor:
+			json_array_constructor_by_enumeration
+			| json_array_constructor_by_query
+		;
+
+json_array_constructor_by_enumeration:
+			json_array_constructor_start
+					json_array_constructor_by_enumeration_args_opt
+					json_output_clause_opt ')'
+				{
+					JsonArrayCtor *n = (JsonArrayCtor *) $2;
+					n->output = (JsonOutput *) $3;
+					n->location = @1;
+					$$ = (Node *) n;
+					exit_json_expression();
+				}
+		;
+
+json_array_constructor_start:
+			JSON_ARRAY '('	{ enter_json_expression(); }
+		;
+
+json_array_constructor_by_enumeration_args_opt:
+			json_value_expr_list json_array_constructor_null_clause_opt
+				{
+					JsonArrayCtor *n = makeNode(JsonArrayCtor);
+					n->exprs = $1;
+					n->absent_on_null = $2;
+					$$ = (Node *) n;
+				}
+			| /* EMPTY */
+				{
+					JsonArrayCtor *n = makeNode(JsonArrayCtor);
+					n->exprs = NIL;
+					n->absent_on_null = TRUE;
+					$$ = (Node *) n;
+				}
+		;
+
+json_value_expr_list:
+			json_value_expr								{ $$ = list_make1($1); }
+			| json_value_expr_list ',' json_value_expr	{ $$ = lappend($1, $3);}
+		;
+
+json_array_constructor_by_query:
+			json_array_constructor_start
+							select_no_parens /* FIXME SelectStmt */ 
+							json_format_clause_opt
+						//	json_array_constructor_null_clause_opt
+							json_output_clause_opt ')'
+				{
+					JsonArrayQueryCtor *n = makeNode(JsonArrayQueryCtor);
+					n->query = $2;
+					n->format = $3;
+					n->absent_on_null = TRUE; // $4;
+					n->output = (JsonOutput *) $4;
+					$$ = (Node *) n;
+					exit_json_expression();
+				}
+		;
+
+json_array_constructor_null_clause_opt:
+			NULL_P ON NULL_P						{ $$ = FALSE; }
+			| ABSENT ON NULL_P						{ $$ = TRUE; }
+			| /* EMPTY */	%prec POSTFIXOP			{ $$ = TRUE; }
+		;
+
+json_aggregate_func:
+			json_object_aggregate_constructor
+			| json_array_aggregate_constructor
+		;
+
+json_object_aggregate_constructor:
+			JSON_OBJECTAGG '('
+				{ enter_json_expression(); }
+								json_name_and_value
+								json_object_constructor_null_clause_opt
+								json_key_uniqueness_constraint_opt
+								json_output_clause_opt ')'
+				{
+					JsonObjectAgg *n = makeNode(JsonObjectAgg);
+					n->arg = (JsonKeyValue *) $4;
+					n->absent_on_null = $5;
+					n->unique = $6;
+					n->ctor.output = (JsonOutput *) $7;
+					n->ctor.agg_order = NULL;
+					n->ctor.location = @1;
+					$$ = (Node *) n;
+					exit_json_expression();
+				}
+		;
+
+json_array_aggregate_constructor:
+			JSON_ARRAYAGG '('
+				{ enter_json_expression(); }
+								json_value_expr
+								json_array_aggregate_order_by_clause_opt
+								json_array_constructor_null_clause_opt
+								json_output_clause_opt ')'
+				{
+					JsonArrayAgg *n = makeNode(JsonArrayAgg);
+					n->arg = (JsonValueExpr *) $4;
+					n->ctor.agg_order = $5;
+					n->absent_on_null = $6;
+					n->ctor.output = (JsonOutput *) $7;
+					n->ctor.location = @1;
+					$$ = (Node *) n;
+					exit_json_expression();
+				}
+		;
+
+json_array_aggregate_order_by_clause_opt:
+			ORDER BY sortby_list					{ $$ = $3; }
+			| /* EMPTY */							{ $$ = NIL; }
+		;
 
 /*****************************************************************************
  *
@@ -14612,6 +15503,7 @@ ColLabel:	IDENT									{ $$ = $1; }
  */
 unreserved_keyword:
 			  ABORT_P
+			| ABSENT
 			| ABSOLUTE_P
 			| ACCESS
 			| ACTION
@@ -14637,6 +15529,7 @@ unreserved_keyword:
 			| CASCADED
 			| CATALOG_P
 			| CHAIN
+			| CHAINING
 			| CHARACTERISTICS
 			| CHECKPOINT
 			| CLASS
@@ -14647,6 +15540,7 @@ unreserved_keyword:
 			| COMMENTS
 			| COMMIT
 			| COMMITTED
+			| CONDITIONAL
 			| CONFIGURATION
 			| CONFLICT
 			| CONNECTION
@@ -14682,10 +15576,12 @@ unreserved_keyword:
 			| DOUBLE_P
 			| DROP
 			| EACH
+			| EMPTY_P
 			| ENABLE_P
 			| ENCODING
 			| ENCRYPTED
 			| ENUM_P
+			| ERROR_P
 			| ESCAPE
 			| EVENT
 			| EXCLUDE
@@ -14700,6 +15596,7 @@ unreserved_keyword:
 			| FIRST_P
 			| FOLLOWING
 			| FORCE
+			| FORMAT
 			| FORWARD
 			| FUNCTION
 			| FUNCTIONS
@@ -14729,7 +15626,11 @@ unreserved_keyword:
 			| INSTEAD
 			| INVOKER
 			| ISOLATION
+			| JSON
+			| JSONB
+			| KEEP
 			| KEY
+			| KEYS
 			| LABEL
 			| LANGUAGE
 			| LARGE_P
@@ -14755,6 +15656,7 @@ unreserved_keyword:
 			| MOVE
 			| NAME_P
 			| NAMES
+			| NESTED
 			| NEW
 			| NEXT
 			| NO
@@ -14768,6 +15670,7 @@ unreserved_keyword:
 			| OFF
 			| OIDS
 			| OLD
+			| OMIT
 			| OPERATOR
 			| OPTION
 			| OPTIONS
@@ -14782,6 +15685,8 @@ unreserved_keyword:
 			| PARTITION
 			| PASSING
 			| PASSWORD
+			| PATH
+			| PLAN
 			| PLANS
 			| POLICY
 			| PRECEDING
@@ -14795,6 +15700,7 @@ unreserved_keyword:
 			| PROGRAM
 			| PUBLICATION
 			| QUOTE
+			| QUOTES
 			| RANGE
 			| READ
 			| REASSIGN
@@ -14821,6 +15727,7 @@ unreserved_keyword:
 			| ROWS
 			| RULE
 			| SAVEPOINT
+			| SCALAR
 			| SCHEMA
 			| SCHEMAS
 			| SCROLL
@@ -14850,6 +15757,7 @@ unreserved_keyword:
 			| STDOUT
 			| STORAGE
 			| STRICT_P
+			| STRING
 			| STRIP_P
 			| SUBSCRIPTION
 			| SYSID
@@ -14869,6 +15777,7 @@ unreserved_keyword:
 			| TYPES_P
 			| UNBOUNDED
 			| UNCOMMITTED
+			| UNCONDITIONAL
 			| UNENCRYPTED
 			| UNKNOWN
 			| UNLISTEN
@@ -14919,13 +15828,22 @@ col_name_keyword:
 			| DECIMAL_P
 			| EXISTS
 			| EXTRACT
-			| FLOAT_P
+			| FLOAT_P			
 			| GREATEST
 			| GROUPING
 			| INOUT
 			| INT_P
 			| INTEGER
 			| INTERVAL
+			| JSON_ARRAY
+			| JSON_ARRAYAGG
+			| JSON_EXISTS
+			| JSON_OBJECT
+			| JSON_OBJECTAGG
+			| JSON_QUERY
+			| JSON_TABLE
+			| JSON_TABLE_PRIMITIVE
+			| JSON_VALUE			
 			| LEAST
 			| NATIONAL
 			| NCHAR
