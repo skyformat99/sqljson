@@ -155,6 +155,7 @@ test: advisory_lock
 test: json
 test: jsonb
 test: json_encoding
+test: sql_json
 test: indirect_toast
 test: equivclass
 test: plancache

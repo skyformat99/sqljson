@@ -1436,6 +1436,10 @@ typedef struct JsonOutput
 	NodeTag		type;
 	TypeName   *typename;
 	JsonFormat	format;
+
+	/* These fields are set by transformJsonOutput() */
+	Oid			typid;
+	int32		typmod;
 } JsonOutput;
 
 typedef struct JsonValueExpr
