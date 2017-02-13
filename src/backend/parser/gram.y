@@ -13064,21 +13064,6 @@ a_expr:		c_expr									{ $$ = $1; }
 												 list_make1($1), @2),
 									 @2);
 				}
-			| a_expr
-				// json_format_clause_opt
-				IS JSON json_predicate_type_constraint_opt
-					json_key_uniqueness_constraint_opt		%prec IS
-				{
-					$$ = $1; /* FIXME!!! */
-				}
-			| a_expr
-				// json_format_clause_opt
-				IS NOT JSON
-					json_predicate_type_constraint_opt
-					json_key_uniqueness_constraint_opt		%prec IS
-				{
-					$$ = makeNotExpr($1, @1);; /* FIXME!!! */
-				}
 			| DEFAULT
 				{
 					/*
@@ -13187,6 +13172,34 @@ b_expr:		c_expr
 					$$ = makeNotExpr(makeXmlExpr(IS_DOCUMENT, NULL, NIL,
 												 list_make1($1), @2),
 									 @2);
+				}
+			| b_expr
+				IS JSON json_predicate_type_constraint_opt
+					json_key_uniqueness_constraint_opt		%prec IS
+				{
+					$$ = $1; /* FIXME!!! */
+				}
+			| b_expr
+				FORMAT json_representation
+				IS JSON json_predicate_type_constraint_opt
+					json_key_uniqueness_constraint_opt		%prec FORMAT
+				{
+					$$ = $1; /* FIXME!!! */
+				}
+			| b_expr
+				IS NOT JSON
+					json_predicate_type_constraint_opt
+					json_key_uniqueness_constraint_opt		%prec IS
+				{
+					$$ = makeNotExpr($1, @1);; /* FIXME!!! */
+				}
+			| b_expr
+				FORMAT json_representation
+				IS NOT JSON
+					json_predicate_type_constraint_opt
+					json_key_uniqueness_constraint_opt		%prec FORMAT
+				{
+					$$ = makeNotExpr($1, @1);; /* FIXME!!! */
 				}
 		;
 
@@ -14458,7 +14471,7 @@ json_argument:
 		;
 
 json_value_expr:
-			a_expr json_format_clause_opt
+			b_expr json_format_clause_opt
 			{
 				JsonValueExpr *n = makeNode(JsonValueExpr);
 				n->expr = (Expr *) $1;
@@ -14517,7 +14530,7 @@ json_value_error_behavior_clause_opt:
 json_value_behavior:
 			NULL_P				{ $$ = makeJsonBehavior(JSON_BEHAVIOR_NULL, NULL); }
 			| ERROR_P			{ $$ = makeJsonBehavior(JSON_BEHAVIOR_ERROR, NULL); }
-			| DEFAULT a_expr	{ $$ = makeJsonBehavior(JSON_BEHAVIOR_DEFAULT, $2); }
+			| DEFAULT b_expr	{ $$ = makeJsonBehavior(JSON_BEHAVIOR_DEFAULT, $2); }
 		;
 
 json_query_expr:
@@ -14973,20 +14986,18 @@ json_name_and_value_list:
 		;
 
 json_name_and_value:
-//			opt_key json_name VALUE_P json_value_expr
-//				{ $$ = makeJsonKeyValue($2, $4); }
-//			|
+			// KEY c_expr VALUE_P %prec POSTFIXOP
+			//	{ $$ = $1; /* makeJsonKeyValue($2, $4); */ }
+			// |
+			json_name VALUE_P json_value_expr
+				{ $$ = makeJsonKeyValue($1, $3); }
+			|
 			json_name ':' json_value_expr
 				{ $$ = makeJsonKeyValue($1, $3); }
 		;
 
-// opt_key:
-//			KEY										{ }
-//			| /* EMPTY */							{ }
-//		;
-
 json_name:
-			a_expr
+			c_expr
 		;
 
 json_object_constructor_null_clause_opt:

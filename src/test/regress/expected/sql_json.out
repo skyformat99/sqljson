@@ -98,6 +98,58 @@ SELECT JSON_OBJECT(RETURNING bytea FORMAT JSONB);
 SELECT JSON_OBJECT(NULL: 1);
 ERROR:  argument 3 cannot be null
 HINT:  Object keys should be text.
+SELECT JSON_OBJECT('a': 2 + 3);
+ ?column?  
+-----------
+ {"a" : 5}
+(1 row)
+
+SELECT JSON_OBJECT('a' VALUE 2 + 3);
+ ?column?  
+-----------
+ {"a" : 5}
+(1 row)
+
+--SELECT JSON_OBJECT(KEY 'a' VALUE 2 + 3);
+SELECT JSON_OBJECT('a' || 2: 1);
+   ?column?   
+--------------
+ {"a2" : "1"}
+(1 row)
+
+SELECT JSON_OBJECT('a' || 2 VALUE 1);
+   ?column?   
+--------------
+ {"a2" : "1"}
+(1 row)
+
+--SELECT JSON_OBJECT(KEY 'a' || 2 VALUE 1);
+SELECT JSON_OBJECT('a': 2::text);
+  ?column?   
+-------------
+ {"a" : "2"}
+(1 row)
+
+SELECT JSON_OBJECT('a' VALUE 2::text);
+  ?column?   
+-------------
+ {"a" : "2"}
+(1 row)
+
+--SELECT JSON_OBJECT(KEY 'a' VALUE 2::text);
+SELECT JSON_OBJECT(1::text: 2);
+ ?column?  
+-----------
+ {"1" : 2}
+(1 row)
+
+SELECT JSON_OBJECT(1::text VALUE 2);
+ ?column?  
+-----------
+ {"1" : 2}
+(1 row)
+
+--SELECT JSON_OBJECT(KEY 1::text VALUE 2);
 SELECT JSON_OBJECT(json '[1]': 123);
 ERROR:  key value must be scalar, not array, composite, or json
 SELECT JSON_OBJECT(ARRAY[1,2,3]: 'aaa');
