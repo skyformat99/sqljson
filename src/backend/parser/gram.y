@@ -13463,10 +13463,11 @@ func_expr: func_application within_group_clause filter_clause over_clause
 					n->over = $4;
 					$$ = (Node *) n;
 				}
-			| json_aggregate_func filter_clause
+			| json_aggregate_func filter_clause over_clause
 				{
 					JsonAggCtor *n = (JsonAggCtor *) $1;
 					n->agg_filter = $2;
+					n->over = $3;
 					$$ = (Node *) $1;
 				}
 			| func_expr_common_subexpr

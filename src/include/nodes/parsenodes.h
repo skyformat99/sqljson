@@ -1597,6 +1597,7 @@ typedef struct JsonAggCtor
 	JsonOutput *output;
 	Node	   *agg_filter;		/* FILTER clause, if any */
 	List	   *agg_order;		/* ORDER BY clause, if any */
+	struct WindowDef *over;		/* OVER clause, if any */
 	int			location;
 } JsonAggCtor;
 
