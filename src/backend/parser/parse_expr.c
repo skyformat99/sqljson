@@ -124,6 +124,7 @@ static Node *transformIndirection(ParseState *pstate, Node *basenode,
 static Node *transformTypeCast(ParseState *pstate, TypeCast *tc);
 static Node *transformCollateClause(ParseState *pstate, CollateClause *c);
 static Node *transformJsonObjectCtor(ParseState *pstate, JsonObjectCtor *ctor);
+static Node *transformJsonArrayCtor(ParseState *pstate, JsonArrayCtor *ctor);
 static Node *make_row_comparison_op(ParseState *pstate, List *opname,
 					   List *largs, List *rargs, int location);
 static Node *make_row_distinct_op(ParseState *pstate, List *opname,
@@ -380,6 +381,10 @@ transformExprRecurse(ParseState *pstate, Node *expr)
 
 		case T_JsonObjectCtor:
 			result = transformJsonObjectCtor(pstate, (JsonObjectCtor *) expr);
+			break;
+
+		case T_JsonArrayCtor:
+			result = transformJsonArrayCtor(pstate, (JsonArrayCtor *) expr);
 			break;
 
 		default:
@@ -3672,6 +3677,50 @@ transformJsonObjectCtor(ParseState *pstate, JsonObjectCtor *ctor)
 	else
 	{
 		funcid = args ? F_JSON_BUILD_OBJECT_EXT : F_JSON_BUILD_OBJECT_NOARGS;
+		funcrettype = JSONOID;
+	}
+
+	fexpr = makeFuncExpr(funcid, funcrettype, args,
+						 InvalidOid, InvalidOid, COERCE_EXPLICIT_CALL);
+	fexpr->location = ctor->location;
+
+	return coerceJsonFuncExpr(pstate, (Node *) fexpr, ctor->output);
+}
+
+static Node *
+transformJsonArrayCtor(ParseState *pstate, JsonArrayCtor *ctor)
+{
+	FuncExpr   *fexpr;
+	List	   *args = NIL;
+	Oid			funcid;
+	Oid			funcrettype;
+
+	if (ctor->exprs)
+	{
+		ListCell   *lc;
+
+		args = lappend(args, makeBoolConst(ctor->absent_on_null, false));
+
+		foreach(lc, ctor->exprs)
+		{
+			JsonValueExpr *jsval = castNode(JsonValueExpr, lfirst(lc));
+			Node	   *val = transformJsonValueExpr(pstate, jsval,
+													 JS_FORMAT_DEFAULT);
+
+			args = lappend(args, val);
+		}
+	}
+
+	transformJsonOutput(pstate, &ctor->output);
+
+	if (ctor->output->format.type == JS_FORMAT_JSONB)
+	{
+		funcid = args ? F_JSONB_BUILD_ARRAY_EXT : F_JSONB_BUILD_ARRAY_NOARGS;
+		funcrettype = JSONBOID;
+	}
+	else
+	{
+		funcid = args ? F_JSON_BUILD_ARRAY_EXT : F_JSON_BUILD_ARRAY_NOARGS;
 		funcrettype = JSONOID;
 	}
 
