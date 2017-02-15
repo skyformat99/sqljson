@@ -112,9 +112,9 @@ SELECT JSON_OBJECT('a' VALUE 2 + 3);
 
 --SELECT JSON_OBJECT(KEY 'a' VALUE 2 + 3);
 SELECT JSON_OBJECT('a' || 2: 1);
-   ?column?   
---------------
- {"a2" : "1"}
+  ?column?  
+------------
+ {"a2" : 1}
 (1 row)
 
 SELECT JSON_OBJECT('a' || 2 VALUE 1);

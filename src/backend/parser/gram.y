@@ -629,11 +629,7 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 					json_object_ctor_args_opt
 					json_object_func_args
 					json_array_constructor
-					json_array_constructor_by_enumeration
-					json_array_constructor_by_enumeration_args_opt
-					json_array_constructor_by_query
 					json_name_and_value
-					json_name
 					json_aggregate_func
 					json_object_aggregate_constructor
 					json_array_aggregate_constructor
@@ -802,8 +798,7 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
  * as NOT, at least with respect to their left-hand subexpression.
  * NULLS_LA and WITH_LA are needed to make the grammar LALR(1).
  */
-%token		NOT_LA NULLS_LA WITH_LA WITH_LA_UNIQUE WITHOUT_LA FORMAT_LA
-
+%token		NOT_LA NULLS_LA WITH_LA WITH_LA_UNIQUE WITHOUT_LA
 
 /* Precedence: lowest to highest */
 %nonassoc	SET				/* see relation_expr_opt_alias */
@@ -13186,38 +13181,6 @@ b_expr:		c_expr
 												 list_make1($1), @2),
 									 @2);
 				}
-			| b_expr
-				IS JSON
-					json_predicate_type_constraint_opt
-					json_key_uniqueness_constraint_opt		%prec IS
-				{
-					JsonFormat format = { JS_FORMAT_DEFAULT, JS_ENC_DEFAULT };
-					$$ = makeJsonPredicate($1, format, $4, $5);
-				}
-			| b_expr
-				FORMAT json_representation
-				IS JSON
-					json_predicate_type_constraint_opt
-					json_key_uniqueness_constraint_opt		%prec FORMAT
-				{
-					$$ = makeJsonPredicate($1, $3, $6, $7);
-				}
-			| b_expr
-				IS NOT JSON
-					json_predicate_type_constraint_opt
-					json_key_uniqueness_constraint_opt		%prec IS
-				{
-					JsonFormat format = { JS_FORMAT_DEFAULT, JS_ENC_DEFAULT };
-					$$ = makeNotExpr(makeJsonPredicate($1, format, $5, $6), @1);
-				}
-			| b_expr
-				FORMAT json_representation
-				IS NOT JSON
-					json_predicate_type_constraint_opt
-					json_key_uniqueness_constraint_opt		%prec FORMAT
-				{
-					$$ = makeNotExpr(makeJsonPredicate($1, $3, $7, $8), @1);
-				}
 		;
 
 json_predicate_type_constraint_opt:
@@ -14439,19 +14402,18 @@ json_func_expr:
 
 json_value_func_expr:
 			JSON_VALUE '('
-				{ enter_json_expression(); }
-							json_api_common_syntax
-							json_returning_clause_opt
-							json_value_empty_behavior_clause_opt
-							json_value_error_behavior_clause_opt ')'
+				json_api_common_syntax
+				json_returning_clause_opt
+				json_value_empty_behavior_clause_opt
+				json_value_error_behavior_clause_opt
+			')'
 				{
 					JsonValueFunc *n = makeNode(JsonValueFunc);
-					n->common = (JsonCommon *) $4;
-					n->returning = $5;
-					n->on_empty = (JsonBehavior *) $6;
-					n->on_error = (JsonBehavior *) $7;
+					n->common = (JsonCommon *) $3;
+					n->returning = $4;
+					n->on_empty = (JsonBehavior *) $5;
+					n->on_error = (JsonBehavior *) $6;
 					$$ = (Node *) n;
-					exit_json_expression();
 				}
 		;
 
@@ -14507,7 +14469,7 @@ json_argument:
 		;
 
 json_value_expr:
-			b_expr json_format_clause_opt
+			a_expr json_format_clause_opt
 			{
 				JsonValueExpr *n = makeNode(JsonValueExpr);
 				n->expr = (Expr *) $1;
@@ -14517,7 +14479,7 @@ json_value_expr:
 		;
 
 json_format_clause_opt:
-			FORMAT_LA json_representation		{ $$ = $2; }
+			FORMAT json_representation			{ $$ = $2; }
 			| /* EMPTY */						{ $$.type = JS_FORMAT_DEFAULT; }
 		;
 
@@ -14566,29 +14528,27 @@ json_value_error_behavior_clause_opt:
 json_value_behavior:
 			NULL_P				{ $$ = makeJsonBehavior(JSON_BEHAVIOR_NULL, NULL); }
 			| ERROR_P			{ $$ = makeJsonBehavior(JSON_BEHAVIOR_ERROR, NULL); }
-			| DEFAULT b_expr	{ $$ = makeJsonBehavior(JSON_BEHAVIOR_DEFAULT, $2); }
+			| DEFAULT a_expr	{ $$ = makeJsonBehavior(JSON_BEHAVIOR_DEFAULT, $2); }
 		;
 
 json_query_expr:
 			JSON_QUERY '('
-				{ enter_json_expression(); }
-							json_api_common_syntax
-							json_output_clause_opt
-							json_wrapper_clause_opt
-							json_quotes_clause_opt
-							json_query_empty_behavior_clause_opt
-							json_query_error_behavior_clause_opt
-						')'
+				json_api_common_syntax
+				json_output_clause_opt
+				json_wrapper_clause_opt
+				json_quotes_clause_opt
+				json_query_empty_behavior_clause_opt
+				json_query_error_behavior_clause_opt
+			')'
 				{
 					JsonQueryFunc *n = makeNode(JsonQueryFunc);
-					n->common = (JsonCommon *) $4;
-					n->output = (JsonOutput *) $5;
-					n->wrapper = $6;
-					n->quotes = $7;
-					n->on_empty = (JsonBehavior *) $8;
-					n->on_error = (JsonBehavior *) $9;
+					n->common = (JsonCommon *) $3;
+					n->output = (JsonOutput *) $4;
+					n->wrapper = $5;
+					n->quotes = $6;
+					n->on_empty = (JsonBehavior *) $7;
+					n->on_error = (JsonBehavior *) $8;
 					$$ = (Node *) n;
-					exit_json_expression();
 				}
 		;
 
@@ -14647,19 +14607,18 @@ json_query_behavior:
 
 json_table:
 			JSON_TABLE '('
-				{ enter_json_expression(); }
-							json_api_common_syntax
-							json_table_columns_clause
-							json_table_plan_clause_opt
-							json_table_error_clause_opt ')'
+				json_api_common_syntax
+				json_table_columns_clause
+				json_table_plan_clause_opt
+				json_table_error_clause_opt
+			')'
 				{
 					JsonTableFunc *n = makeNode(JsonTableFunc);
-					n->common = (JsonCommon *) $4;
-					n->columns = $5;
-					n->plan = $6;
-					n->on_error = $7;
+					n->common = (JsonCommon *) $3;
+					n->columns = $4;
+					n->plan = $5;
+					n->on_error = $6;
 					$$ = (Node *) n;
-					exit_json_expression();
 				}
 		;
 
@@ -14737,7 +14696,7 @@ json_table_column_path_specification_clause_opt:
 		;
 
 json_table_formatted_column_definition:
-			ColId Typename FORMAT_LA json_representation
+			ColId Typename FORMAT json_representation
 			json_table_column_path_specification_clause_opt
 			json_wrapper_clause_opt
 			json_quotes_clause_opt
@@ -14876,17 +14835,16 @@ json_table_error_behavior:
 
 json_table_primitive:
 			JSON_TABLE_PRIMITIVE '('
-				{ enter_json_expression(); }
-					json_api_common_syntax
-					json_table_primitive_columns_clause
-					json_table_error_behavior ON ERROR_P ')'
+				json_api_common_syntax
+				json_table_primitive_columns_clause
+				json_table_error_behavior ON ERROR_P
+			')'
 				{
 					JsonTablePrimitive *n = makeNode(JsonTablePrimitive);
-					n->common = (JsonCommon *) $4;
-					n->columns = $5;
-					n->on_error = $6;
+					n->common = (JsonCommon *) $3;
+					n->columns = $4;
+					n->on_error = $5;
 					$$ = (Node *) n;
-					exit_json_expression();
 				}
 		;
 
@@ -14933,15 +14891,14 @@ json_output_clause_opt:
 
 json_exists_predicate:
 			JSON_EXISTS '('
-				{ enter_json_expression(); }
-							json_api_common_syntax
-							json_exists_error_clause_opt ')'
+				json_api_common_syntax
+				json_exists_error_clause_opt
+			')'
 				{
 					JsonExistsPredicate *p = makeNode(JsonExistsPredicate);
-					p->common = (JsonCommon *) $4;
-					p->on_error = $5;
+					p->common = (JsonCommon *) $3;
+					p->on_error = $4;
 					$$ = (Node *) p;
-					exit_json_expression();
 				}
 		;
 
@@ -14963,10 +14920,9 @@ json_value_constructor:
 		;
 
 json_object_constructor:
-			JSON_OBJECT { enter_json_expression(); } '(' json_object_args ')'
+			JSON_OBJECT '(' json_object_args ')'
 				{
-					$$ = $4;
-					exit_json_expression();
+					$$ = $3;
 				}
 		;
 
@@ -15025,58 +14981,56 @@ json_name_and_value:
 			// KEY c_expr VALUE_P %prec POSTFIXOP
 			//	{ $$ = $1; /* makeJsonKeyValue($2, $4); */ }
 			// |
-			json_name VALUE_P json_value_expr
+			c_expr VALUE_P json_value_expr
 				{ $$ = makeJsonKeyValue($1, $3); }
 			|
-			json_name ':' json_value_expr
+			a_expr ':' json_value_expr
 				{ $$ = makeJsonKeyValue($1, $3); }
-		;
-
-json_name:
-			c_expr
 		;
 
 json_object_constructor_null_clause_opt:
-			NULL_P ON NULL_P						{ $$ = FALSE; }
-			| ABSENT ON NULL_P						{ $$ = TRUE; }
-			| /* EMPTY */	%prec POSTFIXOP			{ $$ = FALSE; }
+			NULL_P ON NULL_P					{ $$ = FALSE; }
+			| ABSENT ON NULL_P					{ $$ = TRUE; }
+			| /* EMPTY */						{ $$ = FALSE; }
 		;
 
 json_array_constructor:
-			json_array_constructor_by_enumeration
-			| json_array_constructor_by_query
-		;
-
-json_array_constructor_by_enumeration:
-			json_array_constructor_start
-					json_array_constructor_by_enumeration_args_opt
-					json_output_clause_opt ')'
-				{
-					JsonArrayCtor *n = (JsonArrayCtor *) $2;
-					n->output = (JsonOutput *) $3;
-					n->location = @1;
-					$$ = (Node *) n;
-					exit_json_expression();
-				}
-		;
-
-json_array_constructor_start:
-			JSON_ARRAY '('	{ enter_json_expression(); }
-		;
-
-json_array_constructor_by_enumeration_args_opt:
-			json_value_expr_list json_array_constructor_null_clause_opt
+			JSON_ARRAY '('
+				json_value_expr_list
+				json_array_constructor_null_clause_opt
+				json_output_clause_opt
+			')'
 				{
 					JsonArrayCtor *n = makeNode(JsonArrayCtor);
-					n->exprs = $1;
-					n->absent_on_null = $2;
+					n->exprs = $3;
+					n->absent_on_null = $4;
+					n->output = (JsonOutput *) $5;
+					n->location = @1;
 					$$ = (Node *) n;
 				}
-			| /* EMPTY */
+			| JSON_ARRAY '('
+				select_no_parens
+				/* json_format_clause_opt */
+				/* json_array_constructor_null_clause_opt */
+				json_output_clause_opt
+			')'
+				{
+					JsonArrayQueryCtor *n = makeNode(JsonArrayQueryCtor);
+					n->query = $3;
+					/* n->format = $4; */
+					n->absent_on_null = true /* $5 */;
+					n->output = (JsonOutput *) $4;
+					n->location = @1;
+					$$ = (Node *) n;
+				}
+			| JSON_ARRAY '('
+				json_output_clause_opt
+			')'
 				{
 					JsonArrayCtor *n = makeNode(JsonArrayCtor);
 					n->exprs = NIL;
-					n->absent_on_null = TRUE;
+					n->output = (JsonOutput *) $3;
+					n->location = @1;
 					$$ = (Node *) n;
 				}
 		;
@@ -15086,27 +15040,10 @@ json_value_expr_list:
 			| json_value_expr_list ',' json_value_expr	{ $$ = lappend($1, $3);}
 		;
 
-json_array_constructor_by_query:
-			json_array_constructor_start
-							select_no_parens /* FIXME SelectStmt */ 
-							json_format_clause_opt
-						//	json_array_constructor_null_clause_opt
-							json_output_clause_opt ')'
-				{
-					JsonArrayQueryCtor *n = makeNode(JsonArrayQueryCtor);
-					n->query = $2;
-					n->format = $3;
-					n->absent_on_null = TRUE; // $4;
-					n->output = (JsonOutput *) $4;
-					$$ = (Node *) n;
-					exit_json_expression();
-				}
-		;
-
 json_array_constructor_null_clause_opt:
 			NULL_P ON NULL_P						{ $$ = FALSE; }
-			| ABSENT ON NULL_P						{ $$ = TRUE; }
-			| /* EMPTY */	%prec POSTFIXOP			{ $$ = TRUE; }
+			| ABSENT ON NULL_P					{ $$ = TRUE; }
+			| /* EMPTY */							{ $$ = TRUE; }
 		;
 
 json_aggregate_func:
@@ -15116,40 +15053,38 @@ json_aggregate_func:
 
 json_object_aggregate_constructor:
 			JSON_OBJECTAGG '('
-				{ enter_json_expression(); }
-								json_name_and_value
-								json_object_constructor_null_clause_opt
-								json_key_uniqueness_constraint_opt
-								json_output_clause_opt ')'
+				json_name_and_value
+				json_object_constructor_null_clause_opt
+				json_key_uniqueness_constraint_opt
+				json_output_clause_opt
+			')'
 				{
 					JsonObjectAgg *n = makeNode(JsonObjectAgg);
-					n->arg = (JsonKeyValue *) $4;
-					n->absent_on_null = $5;
-					n->unique = $6;
-					n->ctor.output = (JsonOutput *) $7;
+					n->arg = (JsonKeyValue *) $3;
+					n->absent_on_null = $4;
+					n->unique = $5;
+					n->ctor.output = (JsonOutput *) $6;
 					n->ctor.agg_order = NULL;
 					n->ctor.location = @1;
 					$$ = (Node *) n;
-					exit_json_expression();
 				}
 		;
 
 json_array_aggregate_constructor:
 			JSON_ARRAYAGG '('
-				{ enter_json_expression(); }
-								json_value_expr
-								json_array_aggregate_order_by_clause_opt
-								json_array_constructor_null_clause_opt
-								json_output_clause_opt ')'
+				json_value_expr
+				json_array_aggregate_order_by_clause_opt
+				json_array_constructor_null_clause_opt
+				json_output_clause_opt
+			')'
 				{
 					JsonArrayAgg *n = makeNode(JsonArrayAgg);
-					n->arg = (JsonValueExpr *) $4;
-					n->ctor.agg_order = $5;
-					n->absent_on_null = $6;
-					n->ctor.output = (JsonOutput *) $7;
+					n->arg = (JsonValueExpr *) $3;
+					n->ctor.agg_order = $4;
+					n->absent_on_null = $5;
+					n->ctor.output = (JsonOutput *) $6;
 					n->ctor.location = @1;
 					$$ = (Node *) n;
-					exit_json_expression();
 				}
 		;
 
@@ -15643,7 +15578,6 @@ unreserved_keyword:
 			| FIRST_P
 			| FOLLOWING
 			| FORCE
-			| FORMAT
 			| FORWARD
 			| FUNCTION
 			| FUNCTIONS
@@ -15942,6 +15876,7 @@ type_func_name_keyword:
 			| CONCURRENTLY
 			| CROSS
 			| CURRENT_SCHEMA
+			| FORMAT
 			| FREEZE
 			| FULL
 			| ILIKE
