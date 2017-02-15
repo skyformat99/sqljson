@@ -1547,6 +1547,24 @@ typedef struct JsonTableFunc
 	JsonBehaviorKind on_error;
 } JsonTableFunc;
 
+typedef enum JsonValueType
+{
+	JS_TYPE_ANY,
+	JS_TYPE_OBJECT,
+	JS_TYPE_ARRAY,
+	JS_TYPE_SCALAR
+} JsonValueType;
+
+typedef struct JsonIsPredicate
+{
+	NodeTag		type;
+	Node	   *expr;
+	JsonFormat	format;
+	JsonValueType vtype;
+	bool		unique_keys;
+	int			location;
+} JsonIsPredicate;
+
 typedef struct JsonExistsPredicate
 {
 	NodeTag		type;

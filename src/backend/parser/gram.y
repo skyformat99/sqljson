@@ -13064,6 +13064,38 @@ a_expr:		c_expr									{ $$ = $1; }
 												 list_make1($1), @2),
 									 @2);
 				}
+			| a_expr
+				IS JSON
+					json_predicate_type_constraint_opt
+					json_key_uniqueness_constraint_opt		%prec IS
+				{
+					JsonFormat format = { JS_FORMAT_DEFAULT, JS_ENC_DEFAULT };
+					$$ = makeJsonPredicate($1, format, $4, $5);
+				}
+			| a_expr
+				FORMAT json_representation
+				IS JSON
+					json_predicate_type_constraint_opt
+					json_key_uniqueness_constraint_opt		%prec FORMAT
+				{
+					$$ = makeJsonPredicate($1, $3, $6, $7);
+				}
+			| a_expr
+				IS NOT JSON
+					json_predicate_type_constraint_opt
+					json_key_uniqueness_constraint_opt		%prec IS
+				{
+					JsonFormat format = { JS_FORMAT_DEFAULT, JS_ENC_DEFAULT };
+					$$ = makeNotExpr(makeJsonPredicate($1, format, $5, $6), @1);
+				}
+			| a_expr
+				FORMAT json_representation
+				IS NOT JSON
+					json_predicate_type_constraint_opt
+					json_key_uniqueness_constraint_opt		%prec FORMAT
+				{
+					$$ = makeNotExpr(makeJsonPredicate($1, $3, $7, $8), @1);
+				}
 			| DEFAULT
 				{
 					/*
@@ -13078,25 +13110,6 @@ a_expr:		c_expr									{ $$ = $1; }
 					n->location = @1;
 					$$ = (Node *)n;
 				}
-		;
-
-json_predicate_type_constraint_opt:
-			VALUE_P									{ $$ = 0; }
-			| ARRAY									{ $$ = 1; }
-			| OBJECT_P								{ $$ = 2; }
-			| SCALAR								{ $$ = 3; }
-			| /* EMPTY */							{ $$ = 0; }
-		;
-
-json_key_uniqueness_constraint_opt:
-			WITH_LA_UNIQUE UNIQUE opt_keys			{ $$ = TRUE; }
-			| WITHOUT UNIQUE opt_keys				{ $$ = FALSE; }
-			| /* EMPTY */ %prec empty_json_unique	{ $$ = FALSE; }
-		;
-
-opt_keys:
-			KEYS									{ }
-			| /* EMPTY */							{ }
 		;
 
 /*
@@ -13174,24 +13187,28 @@ b_expr:		c_expr
 									 @2);
 				}
 			| b_expr
-				IS JSON json_predicate_type_constraint_opt
+				IS JSON
+					json_predicate_type_constraint_opt
 					json_key_uniqueness_constraint_opt		%prec IS
 				{
-					$$ = $1; /* FIXME!!! */
+					JsonFormat format = { JS_FORMAT_DEFAULT, JS_ENC_DEFAULT };
+					$$ = makeJsonPredicate($1, format, $4, $5);
 				}
 			| b_expr
 				FORMAT json_representation
-				IS JSON json_predicate_type_constraint_opt
+				IS JSON
+					json_predicate_type_constraint_opt
 					json_key_uniqueness_constraint_opt		%prec FORMAT
 				{
-					$$ = $1; /* FIXME!!! */
+					$$ = makeJsonPredicate($1, $3, $6, $7);
 				}
 			| b_expr
 				IS NOT JSON
 					json_predicate_type_constraint_opt
 					json_key_uniqueness_constraint_opt		%prec IS
 				{
-					$$ = makeNotExpr($1, @1);; /* FIXME!!! */
+					JsonFormat format = { JS_FORMAT_DEFAULT, JS_ENC_DEFAULT };
+					$$ = makeNotExpr(makeJsonPredicate($1, format, $5, $6), @1);
 				}
 			| b_expr
 				FORMAT json_representation
@@ -13199,8 +13216,27 @@ b_expr:		c_expr
 					json_predicate_type_constraint_opt
 					json_key_uniqueness_constraint_opt		%prec FORMAT
 				{
-					$$ = makeNotExpr($1, @1);; /* FIXME!!! */
+					$$ = makeNotExpr(makeJsonPredicate($1, $3, $7, $8), @1);
 				}
+		;
+
+json_predicate_type_constraint_opt:
+			VALUE_P									{ $$ = JS_TYPE_ANY; }
+			| ARRAY									{ $$ = JS_TYPE_ARRAY; }
+			| OBJECT_P								{ $$ = JS_TYPE_OBJECT; }
+			| SCALAR								{ $$ = JS_TYPE_SCALAR; }
+			| /* EMPTY */							{ $$ = JS_TYPE_ANY; }
+		;
+
+json_key_uniqueness_constraint_opt:
+			WITH_LA_UNIQUE UNIQUE opt_keys			{ $$ = TRUE; }
+			| WITHOUT UNIQUE opt_keys				{ $$ = FALSE; }
+			| /* EMPTY */ %prec empty_json_unique	{ $$ = FALSE; }
+		;
+
+opt_keys:
+			KEYS									{ }
+			| /* EMPTY */							{ }
 		;
 
 /*
@@ -14482,8 +14518,8 @@ json_value_expr:
 		;
 
 json_format_clause_opt:
-			FORMAT_LA json_representation			{ $$ = $2; }
-			| /* EMPTY */							{ $$.type = JS_FORMAT_DEFAULT; }
+			FORMAT_LA json_representation		{ $$ = $2; }
+			| /* EMPTY */						{ $$.type = JS_FORMAT_DEFAULT; }
 		;
 
 json_representation:
