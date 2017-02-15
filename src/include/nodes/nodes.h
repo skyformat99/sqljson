@@ -476,6 +476,7 @@ typedef enum NodeTag
 	T_JsonArrayAgg,
 	T_JsonValueFunc,
 	T_JsonQueryFunc,
+	T_JsonIsPredicate,
 	T_JsonExistsPredicate,
 	T_JsonTableFunc,
 	T_JsonTableColumn,
