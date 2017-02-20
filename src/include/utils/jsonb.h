@@ -15,6 +15,7 @@
 #include "lib/stringinfo.h"
 #include "utils/array.h"
 #include "utils/numeric.h"
+#include "nodes/primnodes.h"
 
 /* Tokens used when sequentially processing a jsonb value */
 typedef enum
@@ -380,5 +381,17 @@ extern char *JsonbToCString(StringInfo out, JsonbContainer *in,
 extern char *JsonbToCStringIndent(StringInfo out, JsonbContainer *in,
 					 int estimated_len);
 
+#ifndef JSONPATH_H
+typedef char *JsonPath;
+extern bool JsonbPathExists(Jsonb *, JsonPath path, void *args);
+extern Jsonb *JsonbPathQuery(Jsonb *jb, JsonPath jp, JsonWrapper wrapper,
+							 bool *empty, void *args);
+extern Jsonb *JsonbPathValue(Jsonb *jb, JsonPath jp, bool *empty, void *args);
+#endif
+
+extern Jsonb *JsonbMakeEmptyArray(void);
+extern Jsonb *JsonbMakeEmptyObject(void);
+
+extern char *JsonbUnquote(Jsonb *jb);
 
 #endif   /* __JSONB_H__ */

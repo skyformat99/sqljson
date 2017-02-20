@@ -2011,6 +2011,71 @@ ExecInitExprRec(Expr *node, PlanState *parent, ExprState *state,
 				break;
 			}
 
+		case T_JsonExpr:
+			{
+				JsonExpr   *jexpr = castNode(JsonExpr, node);
+				int			nargs;
+
+				scratch.opcode = EEOP_JSONEXPR;
+				scratch.d.jsonexpr.jsexpr = jexpr;
+
+				scratch.d.jsonexpr.raw_expr =
+						palloc(sizeof(*scratch.d.jsonexpr.raw_expr));
+
+				ExecInitExprRec((Expr *) jexpr->raw_expr, parent, state,
+								&scratch.d.jsonexpr.raw_expr->value,
+								&scratch.d.jsonexpr.raw_expr->isnull);
+
+				scratch.d.jsonexpr.formatted_expr =
+						ExecInitExpr((Expr *) jexpr->formatted_expr, parent);
+
+				scratch.d.jsonexpr.result_expr =
+						ExecInitExpr((Expr *) jexpr->result_expr, parent);
+
+				scratch.d.jsonexpr.default_on_empty =
+					ExecInitExpr((Expr *) jexpr->on_empty.default_expr, parent);
+
+				scratch.d.jsonexpr.default_on_error =
+					ExecInitExpr((Expr *) jexpr->on_error.default_expr, parent);
+
+				if (jexpr->coerce_via_io || jexpr->omit_quotes)
+				{
+					Oid			typinput;
+
+					/* lookup the result type's input function */
+					getTypeInputInfo(jexpr->returning.typid, &typinput,
+									 &scratch.d.jsonexpr.input.typioparam);
+					fmgr_info(typinput, &scratch.d.jsonexpr.input.func);
+				}
+
+				nargs = list_length(jexpr->passing.values);
+
+				if (nargs > 0)
+				{
+					ListCell   *arg;
+					int			off = 0;
+
+					scratch.d.jsonexpr.args.values =
+							(Datum *) palloc(sizeof(Datum) * nargs);
+					scratch.d.jsonexpr.args.nulls =
+							(bool *) palloc(sizeof(bool) * nargs);
+
+					foreach(arg, jexpr->passing.values)
+					{
+						Expr	   *e = (Expr *) lfirst(arg);
+
+						ExecInitExprRec(e, parent, state,
+										&scratch.d.jsonexpr.args.values[off],
+										&scratch.d.jsonexpr.args.nulls[off]);
+						off++;
+					}
+				}
+
+				ExprEvalPushStep(state, &scratch);
+			}
+			break;
+
+
 		default:
 			elog(ERROR, "unrecognized node type: %d",
 				 (int) nodeTag(node));

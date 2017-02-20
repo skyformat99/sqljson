@@ -2228,3 +2228,395 @@ jsonb_is_valid(PG_FUNCTION_ARGS)
 
 	PG_RETURN_BOOL(true);
 }
+
+/*****************------------XXX REMOVE IT */
+typedef char *JsonPathEntry;
+
+#define PG_GETARG_JSONPATH(n) text_to_cstring(PG_GETARG_TEXT_P(n))
+
+typedef struct JsonbPathIterator JsonbPathIterator;
+
+struct JsonbPathIterator
+{
+	enum { JPI_EMPTY, JPI_SINGLETON, JPI_MEMBER, JPI_ARRAY } type;
+	union
+	{
+		JsonbValue *singleton;
+
+		struct
+		{
+			JsonbPathIterator *parent;
+			JsonbValue field;
+		} member;
+
+		struct
+		{
+			JsonbPathIterator *parent;
+			JsonbIterator *it;
+		} array;
+	} u;
+};
+
+static JsonPathEntry
+jsonPathGetNextEntry(JsonPath *path)
+{
+	char *c = *path;
+	char *entry;
+
+	if (!*c)
+		return NULL;
+
+	if (*c == '.')
+		elog(ERROR, "invalid json path \"%s\"", *path);
+	else if (*c == '[')
+	{
+		c++;
+
+		while (*c && *c != ']')
+			c++;
+
+		if (*c == ']')
+			c++;
+	}
+	else
+	{
+		while (*c && *c != '.' && *c != '[')
+			c++;
+	}
+
+	entry = pnstrdup(*path, c - *path);
+
+	if (*c == '.')
+	{
+		c++;
+		if (!*c || *c == '[')
+			elog(ERROR, "invalid json path \"%s\"", *path);
+	}
+	else if (*c && *c != '[')
+		elog(ERROR, "invalid json path \"%s\"", *path);
+
+	*path = c;
+
+	return entry;
+}
+
+static JsonbValue *
+JsonbExtractScalar(JsonbContainer *jbc, JsonbValue *res)
+{
+	JsonbIterator *it = JsonbIteratorInit(jbc);
+	JsonbIteratorToken tok PG_USED_FOR_ASSERTS_ONLY;
+	JsonbValue	tmp;
+
+	tok = JsonbIteratorNext(&it, &tmp, true);
+	Assert(tok == WJB_BEGIN_ARRAY);
+	Assert(tmp.val.array.nElems == 1 && tmp.val.array.rawScalar);
+
+	tok = JsonbIteratorNext(&it, res, true);
+	Assert (tok == WJB_ELEM);
+	Assert(IsAJsonbScalar(res));
+
+	tok = JsonbIteratorNext(&it, &tmp, true);
+	Assert (tok == WJB_END_ARRAY);
+
+	return res;
+}
+
+static JsonbPathIterator *
+jsonbPathIteratorInit(Jsonb *jb, JsonPath jp,
+					  FunctionCallInfo fcinfo, int first_vararg)
+{
+	char	   *entry;
+	JsonbPathIterator *res = NULL;
+
+	while ((entry = jsonPathGetNextEntry(&jp)))
+	{
+		JsonbPathIterator *it = palloc(sizeof(*it));
+
+		if (!strcmp(entry, "$"))
+		{
+			it->type = JPI_SINGLETON;
+			it->u.singleton = palloc(sizeof(JsonbValue));
+
+			if (JB_ROOT_IS_SCALAR(jb))
+				JsonbExtractScalar(&jb->root, it->u.singleton);
+			else
+			{
+				it->u.singleton->type = jbvBinary;
+				it->u.singleton->val.binary.data = &jb->root;
+				it->u.singleton->val.binary.len = VARSIZE_ANY_EXHDR(jb);
+			}
+		}
+		else if (entry[0] == '[')
+		{
+			it->type = JPI_ARRAY;
+			it->u.array.parent = res;
+			it->u.array.it = NULL;
+		}
+		else
+		{
+			it->type = JPI_MEMBER;
+			it->u.member.parent = res;
+			it->u.member.field.type = jbvString;
+			it->u.member.field.val.string.val = entry;
+			it->u.member.field.val.string.len = strlen(entry);
+
+			if (*entry == '"')
+			{
+				it->u.member.field.val.string.val++;
+				it->u.member.field.val.string.len -= 2;
+			}
+		}
+
+		res = it;
+	}
+
+	if (!res)
+	{
+		res = palloc(sizeof(*res));
+		res->type = JPI_EMPTY;
+	}
+
+	return res;
+}
+
+static JsonbValue *
+jsonbPathIteratorNext(JsonbPathIterator *it)
+{
+	switch (it->type)
+	{
+		case JPI_EMPTY:
+			return NULL;
+
+		case JPI_SINGLETON:
+		{
+			JsonbValue *jbv = it->u.singleton;
+			it->u.singleton = NULL;
+			return jbv;
+		}
+
+		case JPI_MEMBER:
+		{
+			JsonbValue *jbv;
+
+			while ((jbv = jsonbPathIteratorNext(it->u.member.parent)))
+			{
+				if (jbv->type != jbvBinary)
+					continue;
+
+				jbv = findJsonbValueFromContainer(jbv->val.binary.data,
+												  JB_FOBJECT,
+												  &it->u.member.field);
+
+				if (jbv)
+					return jbv;
+			}
+
+			return NULL;
+		}
+
+		case JPI_ARRAY:
+		{
+			JsonbValue *jbv;
+			JsonbValue	elem;
+			JsonbIteratorToken tok;
+
+			do {
+				if (it->u.array.it)
+				{
+					tok = JsonbIteratorNext(&it->u.array.it, &elem, true);
+
+					if (tok == WJB_ELEM)
+					{
+						jbv = palloc(sizeof(*jbv));
+						*jbv = elem;
+						return jbv;
+					}
+
+					Assert(tok == WJB_END_ARRAY);
+
+					tok = JsonbIteratorNext(&it->u.array.it, &elem, true);
+
+					Assert(tok == WJB_DONE);
+					Assert(!it->u.array.it);
+
+					it->u.array.it = NULL;
+				}
+
+				while ((jbv = jsonbPathIteratorNext(it->u.array.parent)))
+				{
+					if (jbv->type != jbvBinary)
+						continue;
+
+					if (!JsonContainerIsArray(jbv->val.binary.data) ||
+						JsonContainerIsScalar(jbv->val.binary.data))
+						continue;
+
+					it->u.array.it = JsonbIteratorInit(jbv->val.binary.data);
+
+					tok = JsonbIteratorNext(&it->u.array.it, &elem, true);
+
+					if (tok == WJB_BEGIN_ARRAY)
+						break;
+
+					if (it->u.array.it)
+					{
+						pfree(it->u.array.it);
+						it->u.array.it = NULL;
+					}
+				}
+			} while (jbv);
+
+			return NULL;
+		}
+	}
+
+	return NULL;
+}
+
+bool
+JsonbPathExists(Jsonb *jb, JsonPath jp, void *args)
+{
+	JsonbPathIterator *it = jsonbPathIteratorInit(jb, jp, /* FIXME */ args, 3);
+
+	return jsonbPathIteratorNext(it) != NULL;
+}
+
+Jsonb *
+JsonbPathQuery(Jsonb *jb, JsonPath jp, JsonWrapper wrapper,
+			   bool *empty, void *args)
+{
+	JsonbPathIterator *it = jsonbPathIteratorInit(jb, jp, args /* FIXME */, 6);
+	JsonbValue *first = jsonbPathIteratorNext(it);
+	JsonbValue *second = first ? jsonbPathIteratorNext(it) : NULL;
+	Jsonb	   *res = NULL;
+	bool		wrap;
+
+	if (!first)
+		wrap = false;
+	else if (wrapper == JSW_NONE)
+		wrap = false;
+	else if (wrapper == JSW_UNCONDITIONAL)
+		wrap = true;
+	else if (wrapper == JSW_CONDITIONAL)
+		wrap = second || IsAJsonbScalar(first);
+	else
+	{
+		elog(ERROR, "unrecognized json wrapper %d", wrapper);
+		wrap = false;
+	}
+
+	if (wrap)
+	{
+		JsonbParseState *ps = NULL;
+		JsonbValue *arr;
+
+		pushJsonbValue(&ps, WJB_BEGIN_ARRAY, NULL);
+		pushJsonbValue(&ps, WJB_ELEM, first);
+
+		while (second)
+		{
+			pushJsonbValue(&ps, WJB_ELEM, second);
+			second = jsonbPathIteratorNext(it);
+		}
+
+		arr = pushJsonbValue(&ps, WJB_END_ARRAY, NULL);
+		res = JsonbValueToJsonb(arr);
+	}
+	else
+	{
+		if (second)
+			ereport(ERROR,
+					(errcode(ERRCODE_MORE_THAN_ONE_JSON_ITEM),
+					 errmsg("more than one SQL/JSON item")));
+		else if (first)
+			res = JsonbValueToJsonb(first);
+		else
+		{
+			*empty = true;
+			res = NULL;
+		}
+	}
+
+	return res;
+}
+
+Jsonb *
+JsonbPathValue(Jsonb *jb, JsonPath jp, bool *empty, void *args)
+{
+	JsonbPathIterator *it = jsonbPathIteratorInit(jb, jp, args /* FIXME fcinfo */, 6);
+	JsonbValue *jbv = jsonbPathIteratorNext(it);
+	Jsonb	   *res = NULL;
+
+	*empty = false;
+
+	if (!jbv)
+	{
+		*empty = true;
+		res = NULL;
+	}
+	else if (jsonbPathIteratorNext(it))
+		ereport(ERROR,
+				(errcode(ERRCODE_MORE_THAN_ONE_JSON_ITEM),
+				 errmsg("more than one SQL/JSON item")));
+	else if (!IsAJsonbScalar(jbv))
+		ereport(ERROR,
+				(errcode(ERRCODE_JSON_SCALAR_REQUIRED),
+				 errmsg("SQL/JSON scalar required")));
+	else if (jbv->type != jbvNull)
+		res = JsonbValueToJsonb(jbv);
+
+	return res;
+}
+
+Jsonb *
+JsonbMakeEmptyArray(void)
+{
+	JsonbValue jbv;
+
+	jbv.type = jbvArray;
+	jbv.val.array.elems = NULL;
+	jbv.val.array.nElems = 0;
+	jbv.val.array.rawScalar = false;
+
+	return JsonbValueToJsonb(&jbv);
+}
+
+Jsonb *
+JsonbMakeEmptyObject(void)
+{
+	JsonbValue jbv;
+
+	jbv.type = jbvObject;
+	jbv.val.object.pairs = NULL;
+	jbv.val.object.nPairs = 0;
+
+	return JsonbValueToJsonb(&jbv);
+}
+
+char *
+JsonbUnquote(Jsonb *jb)
+{
+	if (JB_ROOT_IS_SCALAR(jb))
+	{
+		JsonbValue	v;
+
+		JsonbExtractScalar(&jb->root, &v);
+
+		if (v.type == jbvString)
+			return pnstrdup(v.val.string.val, v.val.string.len);
+		else if (v.type == jbvBool)
+			return pstrdup(v.val.boolean ? "true" : "false");
+		else if (v.type == jbvNumeric)
+			return DatumGetCString(DirectFunctionCall1(numeric_out,
+									   PointerGetDatum(v.val.numeric)));
+		else if (v.type == jbvNull)
+			return pstrdup("null");
+		else
+		{
+			elog(ERROR, "unrecognized jsonb value type %d", v.type);
+			return NULL;
+		}
+	}
+	else
+		return JsonbToCString(NULL, &jb->root, VARSIZE(jb));
+}
