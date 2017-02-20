@@ -242,6 +242,10 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 	PartitionRangeDatum	*partrange_datum;
 	RoleSpec			*rolespec;
 	JsonFormat			 jsformat;
+	struct {
+		Node 	*on_empty;
+		Node	*on_error;
+	} 					on_behavior;
 }
 
 %type <node>	stmt schema_stmt
@@ -583,6 +587,9 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 %type <partrange_datum>	PartitionRangeDatum
 %type <list>		range_datum_list
 
+%type <on_behavior> json_value_on_behavior_clause_opt
+					json_query_on_behavior_clause_opt
+
 %type <node>		json_value_expr
 					json_func_expr
 					json_value_func_expr
@@ -591,19 +598,12 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 					json_api_common_syntax
 					json_context_item
 					json_argument
-					json_value_empty_behavior_clause_opt
-					json_value_error_behavior_clause_opt
 					json_value_behavior
-					json_query_empty_behavior_clause_opt
-					json_query_error_behavior_clause_opt
 					json_query_behavior
 					json_table
 					json_table_column_definition
 					json_table_ordinality_column_definition
 					json_table_regular_column_definition
-					json_table_column_empty_behavior_clause_opt
-					json_table_column_error_behavior_clause_opt
-					json_table_column_behavior
 					json_table_formatted_column_definition
 					json_table_nested_columns
 					json_table_plan_clause_opt
@@ -14404,15 +14404,14 @@ json_value_func_expr:
 			JSON_VALUE '('
 				json_api_common_syntax
 				json_returning_clause_opt
-				json_value_empty_behavior_clause_opt
-				json_value_error_behavior_clause_opt
+				json_value_on_behavior_clause_opt
 			')'
 				{
 					JsonValueFunc *n = makeNode(JsonValueFunc);
 					n->common = (JsonCommon *) $3;
 					n->returning = $4;
-					n->on_empty = (JsonBehavior *) $5;
-					n->on_error = (JsonBehavior *) $6;
+					n->on_empty = (JsonBehavior *) $5.on_empty;
+					n->on_error = (JsonBehavior *) $5.on_error;
 					$$ = (Node *) n;
 				}
 		;
@@ -14515,20 +14514,21 @@ json_returning_clause_opt:
 			| /* EMPTY */							{ $$ = NULL; }
 		;
 
-json_value_empty_behavior_clause_opt:
-			json_value_behavior ON EMPTY_P			{ $$ = $1; }
-			| /* EMPTY */	%prec POSTFIXOP			{ $$ = NULL; }
-		;
-
-json_value_error_behavior_clause_opt:
-			json_value_behavior ON ERROR_P			{ $$ = $1; }
-			| /* EMPTY */	%prec POSTFIXOP			{ $$ = NULL; }
+json_value_on_behavior_clause_opt:
+			json_value_behavior ON EMPTY_P
+									{ $$.on_empty = $1; $$.on_error = NULL; }
+			| json_value_behavior ON EMPTY_P json_value_behavior ON ERROR_P  
+									{ $$.on_empty = $1; $$.on_error = $4; }
+			| json_value_behavior ON ERROR_P
+									{ $$.on_empty = NULL; $$.on_error = $1; }
+			|  /* EMPTY */
+									{ $$.on_empty = NULL; $$.on_error = NULL; }
 		;
 
 json_value_behavior:
-			NULL_P				{ $$ = makeJsonBehavior(JSON_BEHAVIOR_NULL, NULL); }
-			| ERROR_P			{ $$ = makeJsonBehavior(JSON_BEHAVIOR_ERROR, NULL); }
-			| DEFAULT a_expr	{ $$ = makeJsonBehavior(JSON_BEHAVIOR_DEFAULT, $2); }
+			NULL_P					{ $$ = makeJsonBehavior(JSON_BEHAVIOR_NULL, NULL); }
+			| ERROR_P 				{ $$ = makeJsonBehavior(JSON_BEHAVIOR_ERROR, NULL); }
+			| DEFAULT a_expr 		{ $$ = makeJsonBehavior(JSON_BEHAVIOR_DEFAULT, $2); }
 		;
 
 json_query_expr:
@@ -14537,8 +14537,7 @@ json_query_expr:
 				json_output_clause_opt
 				json_wrapper_clause_opt
 				json_quotes_clause_opt
-				json_query_empty_behavior_clause_opt
-				json_query_error_behavior_clause_opt
+				json_query_on_behavior_clause_opt
 			')'
 				{
 					JsonQueryFunc *n = makeNode(JsonQueryFunc);
@@ -14546,8 +14545,8 @@ json_query_expr:
 					n->output = (JsonOutput *) $4;
 					n->wrapper = $5;
 					n->quotes = $6;
-					n->on_empty = (JsonBehavior *) $7;
-					n->on_error = (JsonBehavior *) $8;
+					n->on_empty = (JsonBehavior *) $7.on_empty;
+					n->on_error = (JsonBehavior *) $7.on_error;
 					$$ = (Node *) n;
 				}
 		;
@@ -14588,16 +14587,6 @@ json_on_scalar_string_opt:
 			| /* EMPTY */							{ }
 		;
 
-json_query_empty_behavior_clause_opt:
-			json_query_behavior ON EMPTY_P			{ $$ = $1; }
-			| /* EMPTY */	%prec POSTFIXOP			{ $$ = NULL; }
-		;
-
-json_query_error_behavior_clause_opt:
-			json_query_behavior ON ERROR_P			{ $$ = $1; }
-			| /* EMPTY */	%prec POSTFIXOP			{ $$ = NULL; }
-		;
-
 json_query_behavior:
 			ERROR_P				{ $$ = makeJsonBehavior(JSON_BEHAVIOR_ERROR, NULL); }
 			| NULL_P			{ $$ = makeJsonBehavior(JSON_BEHAVIOR_NULL, NULL); }
@@ -14605,6 +14594,16 @@ json_query_behavior:
 			| EMPTY_P OBJECT_P	{ $$ = makeJsonBehavior(JSON_BEHAVIOR_EMPTY_OBJECT, NULL); }
 		;
 
+json_query_on_behavior_clause_opt:
+			json_query_behavior ON EMPTY_P
+									{ $$.on_empty = $1; $$.on_error = NULL; }
+			| json_query_behavior ON EMPTY_P json_value_behavior ON ERROR_P  
+									{ $$.on_empty = $1; $$.on_error = $4; }
+			| json_query_behavior ON ERROR_P
+									{ $$.on_empty = NULL; $$.on_error = $1; }
+			|  /* EMPTY */
+									{ $$.on_empty = NULL; $$.on_error = NULL; }
+			
 json_table:
 			JSON_TABLE '('
 				json_api_common_syntax
@@ -14653,41 +14652,22 @@ json_table_ordinality_column_definition:
 json_table_regular_column_definition:
 			ColId Typename
 			json_table_column_path_specification_clause_opt
-			json_table_column_empty_behavior_clause_opt
-			json_table_column_error_behavior_clause_opt
+			json_value_on_behavior_clause_opt
 				{
 					JsonTableColumn *n = makeNode(JsonTableColumn);
 					n->coltype = JTC_REGULAR;
 					n->name = $1;
 					n->typename = $2;
 					n->pathspec = $3;
-					n->on_empty = (JsonBehavior *) $4;
-					n->on_error = (JsonBehavior *) $5;
+					n->on_empty = (JsonBehavior *) $4.on_empty;
+					n->on_error = (JsonBehavior *) $4.on_error;
 					$$ = (Node *) n;
 				}
 		;
 
 json_table_error_clause_opt:
 			json_table_error_behavior ON ERROR_P	{ $$ = $1; }
-			| /* EMPTY */	%prec POSTFIXOP		{ $$ = JSON_BEHAVIOR_EMPTY; }
-		;
-
-json_table_column_empty_behavior_clause_opt:
-			json_table_column_behavior ON EMPTY_P	{ $$ = $1; }
-			| /* EMPTY */	%prec POSTFIXOP
-				{ $$ = makeJsonBehavior(JSON_BEHAVIOR_NULL, NULL); }
-		;
-
-json_table_column_error_behavior_clause_opt:
-			json_table_column_behavior ON ERROR_P	{ $$ = $1; }
-			| /* EMPTY */	%prec POSTFIXOP
-				{ $$ = NULL; } /* depends on json table error behavior */
-		;
-
-json_table_column_behavior:
-			ERROR_P				{ $$ = makeJsonBehavior(JSON_BEHAVIOR_ERROR, NULL); }
-			| NULL_P			{ $$ = makeJsonBehavior(JSON_BEHAVIOR_NULL, NULL); }
-			| DEFAULT a_expr	{ $$ = makeJsonBehavior(JSON_BEHAVIOR_DEFAULT, $2); }
+			| /* EMPTY */							{ $$ = JSON_BEHAVIOR_EMPTY; }
 		;
 
 json_table_column_path_specification_clause_opt:
@@ -14700,8 +14680,7 @@ json_table_formatted_column_definition:
 			json_table_column_path_specification_clause_opt
 			json_wrapper_clause_opt
 			json_quotes_clause_opt
-			json_query_empty_behavior_clause_opt
-			json_query_error_behavior_clause_opt
+			json_query_on_behavior_clause_opt
 				{
 					JsonTableColumn *n = makeNode(JsonTableColumn);
 					n->coltype = JTC_FORMATTED;
@@ -14711,8 +14690,8 @@ json_table_formatted_column_definition:
 					n->pathspec = $5;
 					n->wrapper = $6;
 					n->quotes = $7;
-					n->on_empty = (JsonBehavior *) $8;
-					n->on_error = (JsonBehavior *) $9;
+					n->on_empty = (JsonBehavior *) $8.on_empty;
+					n->on_error = (JsonBehavior *) $8.on_error;
 					$$ = (Node *) n;
 				}
 		;
