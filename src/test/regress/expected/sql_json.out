@@ -1387,6 +1387,37 @@ SELECT JSON_QUERY('"aaa"' FORMAT JSONB, '$' RETURNING bytea FORMAT JSONB OMIT QU
  \x616161
 (1 row)
 
+-- QUOTES behavior should not be specified when WITH WRAPPER used:
+-- Should fail
+SELECT JSON_QUERY(jsonb '[1]', '$' WITH WRAPPER OMIT QUOTES);
+ERROR:  SQL/JSON QUOTES behavior shall not be specified when WITH WRAPPER is used
+LINE 1: SELECT JSON_QUERY(jsonb '[1]', '$' WITH WRAPPER OMIT QUOTES)...
+                                                        ^
+SELECT JSON_QUERY(jsonb '[1]', '$' WITH WRAPPER KEEP QUOTES);
+ERROR:  SQL/JSON QUOTES behavior shall not be specified when WITH WRAPPER is used
+LINE 1: SELECT JSON_QUERY(jsonb '[1]', '$' WITH WRAPPER KEEP QUOTES)...
+                                                        ^
+SELECT JSON_QUERY(jsonb '[1]', '$' WITH CONDITIONAL WRAPPER KEEP QUOTES);
+ERROR:  SQL/JSON QUOTES behavior shall not be specified when WITH WRAPPER is used
+LINE 1: ...N_QUERY(jsonb '[1]', '$' WITH CONDITIONAL WRAPPER KEEP QUOTE...
+                                                             ^
+SELECT JSON_QUERY(jsonb '[1]', '$' WITH CONDITIONAL WRAPPER OMIT QUOTES);
+ERROR:  SQL/JSON QUOTES behavior shall not be specified when WITH WRAPPER is used
+LINE 1: ...N_QUERY(jsonb '[1]', '$' WITH CONDITIONAL WRAPPER OMIT QUOTE...
+                                                             ^
+-- Should succeed
+SELECT JSON_QUERY(jsonb '[1]', '$' WITHOUT WRAPPER OMIT QUOTES);
+ ?column? 
+----------
+ [1]
+(1 row)
+
+SELECT JSON_QUERY(jsonb '[1]', '$' WITHOUT WRAPPER KEEP QUOTES);
+ ?column? 
+----------
+ [1]
+(1 row)
+
 SELECT JSON_QUERY('[]' FORMAT JSONB, '$[*]');
  ?column? 
 ----------

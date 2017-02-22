@@ -247,6 +247,7 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 		JsonBehavior		*on_empty;
 		JsonBehavior		*on_error;
 	} 					on_behavior;
+	JsonQuotes			js_quotes;
 }
 
 %type <node>	stmt schema_stmt
@@ -653,7 +654,6 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 					json_table_default_plan_inner_outer
 					json_table_default_plan_union_cross
 					json_wrapper_clause_opt
-					json_quotes_clause_opt
 					json_wrapper_behavior
 					json_conditional_or_unconditional_opt
 					json_predicate_type_constraint_opt
@@ -680,8 +680,10 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 %type <on_behavior> json_value_on_behavior_clause_opt
 					json_query_on_behavior_clause_opt
 
-%type <boolean>		json_quotes_behavior
-					json_key_uniqueness_constraint_opt
+%type <js_quotes>	json_quotes_behavior
+					json_quotes_clause_opt
+
+%type <boolean>		json_key_uniqueness_constraint_opt
 					json_object_constructor_null_clause_opt
 					json_array_constructor_null_clause_opt
 
@@ -14615,7 +14617,12 @@ json_query_expr:
 					n->common = (JsonCommon *) $3;
 					n->output = (JsonOutput *) $4;
 					n->wrapper = $5;
-					n->omit_quotes = $6;
+					if (n->wrapper != JSW_NONE && $6 != JS_QUOTES_UNSPEC)
+						ereport(ERROR,
+								(errcode(ERRCODE_SYNTAX_ERROR),
+								 errmsg("SQL/JSON QUOTES behavior shall not be specified when WITH WRAPPER is used"),
+								 parser_errposition(@6)));				
+					n->omit_quotes = $6 == JS_QUOTES_OMIT;
 					n->on_empty = $7.on_empty;
 					n->on_error = $7.on_error;
 					n->location = @1;
@@ -14646,12 +14653,12 @@ json_conditional_or_unconditional_opt:
 
 json_quotes_clause_opt:
 			json_quotes_behavior QUOTES json_on_scalar_string_opt { $$ = $1; }
-			| /* EMPTY */							{ $$ = FALSE; }
+			| /* EMPTY */							{ $$ = JS_QUOTES_UNSPEC; }
 		;
 
 json_quotes_behavior:
-			KEEP									{ $$ = FALSE; }
-			| OMIT									{ $$ = TRUE; }
+			KEEP									{ $$ = JS_QUOTES_KEEP; }
+			| OMIT									{ $$ = JS_QUOTES_OMIT; }
 		;
 
 json_on_scalar_string_opt:
@@ -14766,7 +14773,12 @@ json_table_formatted_column_definition:
 					n->format = $4;
 					n->pathspec = $5;
 					n->wrapper = $6;
-					n->omit_quotes = $7;
+					if (n->wrapper != JSW_NONE && $7 != JS_QUOTES_UNSPEC)
+						ereport(ERROR,
+								(errcode(ERRCODE_SYNTAX_ERROR),
+								 errmsg("SQL/JSON QUOTES behavior shall not be specified when WITH WRAPPER is used"),
+								 parser_errposition(@7)));
+					n->omit_quotes = $7 == JS_QUOTES_OMIT;
 					n->on_empty = $8.on_empty;
 					n->on_error = $8.on_error;
 					$$ = (Node *) n;

@@ -1381,6 +1381,13 @@ typedef enum
 	JTC_CHAINING
 } JsonTableColumnType;
 
+typedef enum JsonQuotes
+{
+	JS_QUOTES_UNSPEC,
+	JS_QUOTES_KEEP,
+	JS_QUOTES_OMIT
+} JsonQuotes;
+
 typedef char *JsonPathSpec;
 
 typedef struct JsonOutput
