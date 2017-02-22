@@ -133,6 +133,7 @@ static Node *transformJsonObjectAgg(ParseState *pstate, JsonObjectAgg *agg);
 static Node *transformJsonArrayAgg(ParseState *pstate, JsonArrayAgg *agg);
 static Node *transformJsonIsPredicate(ParseState *pstate, JsonIsPredicate *p);
 static Node *transformJsonFuncExpr(ParseState *pstate, JsonFuncExpr *p);
+static Node *transformJsonValueExpr(ParseState *pstate, JsonValueExpr *jve);
 static Node *make_row_comparison_op(ParseState *pstate, List *opname,
 					   List *largs, List *rargs, int location);
 static Node *make_row_distinct_op(ParseState *pstate, List *opname,
@@ -413,6 +414,10 @@ transformExprRecurse(ParseState *pstate, Node *expr)
 
 		case T_JsonFuncExpr:
 			result = transformJsonFuncExpr(pstate, (JsonFuncExpr *) expr);
+			break;
+
+		case T_JsonValueExpr:
+			result = transformJsonValueExpr(pstate, (JsonValueExpr *) expr);
 			break;
 
 		default:
@@ -3532,8 +3537,8 @@ makeCaseTestExpr(Node *expr)
 }
 
 static Node *
-transformJsonValueExpr(ParseState *pstate, JsonValueExpr *ve,
-					   JsonFormatType format, Node **rawexpr)
+transformJsonValueExprExt(ParseState *pstate, JsonValueExpr *ve,
+						  JsonFormatType format, Node **rawexpr)
 {
 	Node	   *expr = transformExprRecurse(pstate, (Node *) ve->expr);
 	Oid			exprtype;
@@ -3592,6 +3597,18 @@ transformJsonValueExpr(ParseState *pstate, JsonValueExpr *ve,
 	}
 
 	return expr;
+}
+
+static Node *
+transformJsonValueExpr(ParseState *pstate, JsonValueExpr *jve)
+{
+	return transformJsonValueExprExt(pstate, jve, JS_FORMAT_JSON, NULL);
+}
+
+static Node *
+transformJsonValueExprDefault(ParseState *pstate, JsonValueExpr *jve)
+{
+	return transformJsonValueExprExt(pstate, jve, JS_FORMAT_DEFAULT, NULL);
 }
 
 static void
@@ -3738,8 +3755,7 @@ transformJsonObjectCtor(ParseState *pstate, JsonObjectCtor *ctor)
 		{
 			JsonKeyValue *kv = castNode(JsonKeyValue, lfirst(lc));
 			Node	   *key = transformExprRecurse(pstate, (Node *) kv->key);
-			Node	   *val = transformJsonValueExpr(pstate, kv->value,
-													 JS_FORMAT_DEFAULT, NULL);
+			Node	   *val = transformJsonValueExprDefault(pstate, kv->value);
 
 			args = lappend(args, key);
 			args = lappend(args, val);
@@ -3862,8 +3878,7 @@ transformJsonObjectAgg(ParseState *pstate, JsonObjectAgg *agg)
 	transformJsonOutput(pstate, &agg->ctor.output, true);
 
 	key = transformExprRecurse(pstate, (Node *) agg->arg->key);
-	val = transformJsonValueExpr(pstate, agg->arg->value,
-								 JS_FORMAT_DEFAULT, NULL);
+	val = transformJsonValueExprDefault(pstate, agg->arg->value);
 	args = list_make4(key,
 					  val,
 					  makeBoolConst(agg->absent_on_null, false),
@@ -3892,7 +3907,7 @@ transformJsonArrayAgg(ParseState *pstate, JsonArrayAgg *agg)
 
 	transformJsonOutput(pstate, &agg->ctor.output, true);
 
-	arg = transformJsonValueExpr(pstate, agg->arg, JS_FORMAT_DEFAULT, NULL);
+	arg = transformJsonValueExprDefault(pstate, agg->arg);
 
 	if (agg->ctor.output->returning.format.type == JS_FORMAT_JSONB)
 	{
@@ -3926,8 +3941,7 @@ transformJsonArrayCtor(ParseState *pstate, JsonArrayCtor *ctor)
 		foreach(lc, ctor->exprs)
 		{
 			JsonValueExpr *jsval = castNode(JsonValueExpr, lfirst(lc));
-			Node	   *val = transformJsonValueExpr(pstate, jsval,
-													 JS_FORMAT_DEFAULT, NULL);
+			Node	   *val = transformJsonValueExprDefault(pstate, jsval);
 
 			args = lappend(args, val);
 		}
@@ -4061,10 +4075,7 @@ transformJsonPassingArgs(ParseState *pstate, List *args, JsonPassing *passing)
 	foreach(lc, args)
 	{
 		JsonArgument *arg = castNode(JsonArgument, lfirst(lc));
-		Node	   *expr;
-
-		expr = transformJsonValueExpr(pstate, arg->val,
-									  JS_FORMAT_DEFAULT, NULL);
+		Node	   *expr = transformJsonValueExprDefault(pstate, arg->val);
 
 		passing->values = lappend(passing->values, expr);
 		passing->names = lappend(passing->names, makeString(arg->name));
@@ -4097,9 +4108,10 @@ transformJsonExprCommon(ParseState *pstate, JsonFuncExpr *func)
 
 	jsexpr->location = func->location;
 	jsexpr->op = func->op;
-	jsexpr->formatted_expr = transformJsonValueExpr(pstate, func->common->expr,
-													JS_FORMAT_JSON,
-													&jsexpr->raw_expr);
+	jsexpr->formatted_expr = transformJsonValueExprExt(pstate,
+													   func->common->expr,
+													   JS_FORMAT_JSON,
+													   &jsexpr->raw_expr);
 	if (jsexpr->formatted_expr == jsexpr->raw_expr)
 		jsexpr->formatted_expr = NULL;
 
