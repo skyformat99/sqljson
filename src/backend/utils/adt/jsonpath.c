@@ -86,8 +86,15 @@ flattenJsonPathParseItem(StringInfo buf, JsonPathParseItem *item)
 		case jpiRoot:
 		case jpiNull:
 			break;
+		case jpiIndexArray:
+			appendBinaryStringInfo(buf,
+								   (char*)&item->array.nelems,
+								   sizeof(item->array.nelems));
+			appendBinaryStringInfo(buf,
+								   (char*)item->array.elems,
+								   item->array.nelems * sizeof(item->array.elems[0]));
+			break;
 		default:
-			abort();
 			elog(ERROR, "1Unknown type: %d", item->type);
 	}
 
@@ -152,6 +159,7 @@ static void
 printJsonPathItem(StringInfo buf, JsonPathItem *v, bool inKey, bool printBracketes)
 {
 	JsonPathItem	elem;
+	int				i;
 
 	check_stack_depth();
 
@@ -232,6 +240,18 @@ printJsonPathItem(StringInfo buf, JsonPathItem *v, bool inKey, bool printBracket
 				appendStringInfoChar(buf, '.');
 			appendStringInfoChar(buf, '*');
 			break;
+		case jpiIndexArray:
+			if (inKey)
+				appendStringInfoChar(buf, '.');
+			appendStringInfoChar(buf, '[');
+			for(i = 0; i< v->array.nelems; i++)
+			{
+				if (i)
+					appendStringInfoChar(buf, ',');
+				appendStringInfo(buf, "%d", v->array.elems[i]);
+			}
+			appendStringInfoChar(buf, ']');
+			break;
 		default:
 			elog(ERROR, "Unknown JsonPathItem type: %d", v->type);
 	}
@@ -259,15 +279,20 @@ jsonpath_out(PG_FUNCTION_ARGS)
 /*
  * Support functions for JsonPath
  */
-#define read_byte(v, b, p) do {		\
-	(v) = *(uint8*)((b) + (p));		\
-	(p) += 1;						\
-} while(0)							\
+#define read_byte(v, b, p) do {			\
+	(v) = *(uint8*)((b) + (p));			\
+	(p) += 1;							\
+} while(0)								\
 
-#define read_int32(v, b, p) do {	\
-	(v) = *(uint32*)((b) + (p));	\
-	(p) += sizeof(int32);			\
-} while(0)							\
+#define read_int32(v, b, p) do {		\
+	(v) = *(uint32*)((b) + (p));		\
+	(p) += sizeof(int32);				\
+} while(0)								\
+
+#define read_int32_n(v, b, p, n) do {	\
+	(v) = (int32*)((b) + (p));			\
+	(p) += sizeof(int32) * (n);			\
+} while(0)								\
 
 void
 jspInit(JsonPathItem *v, JsonPath *js)
@@ -323,8 +348,11 @@ jspInitByBuffer(JsonPathItem *v, char *base, int32 pos)
 		case jpiExpression:
 			read_int32(v->arg, base, pos);
 			break;
+		case jpiIndexArray:
+			read_int32(v->array.nelems, base, pos);
+			read_int32_n(v->array.elems, base, pos, v->array.nelems);
+			break;
 		default:
-			abort();
 			elog(ERROR, "3Unknown type: %d", v->type);
 	}
 }
@@ -354,6 +382,7 @@ jspGetNext(JsonPathItem *v, JsonPathItem *a)
 			v->type == jpiKey ||
 			v->type == jpiAnyArray ||
 			v->type == jpiAnyKey ||
+			v->type == jpiIndexArray ||
 			v->type == jpiCurrent ||
 			v->type == jpiRoot
 		);
@@ -657,7 +686,10 @@ recursiveExecute(JsonPathItem *jsp, JsonbValue *jb, JsonPathItem *jspLeftArg,
 						{
 							res = recursiveExecute(&elem, &v, NULL, found);
 
-							if (res == jperError || found == NULL)
+							if (res == jperError)
+								break;
+
+							if (res == jperOk && found == NULL)
 								break;
 						}
 						else
@@ -675,21 +707,46 @@ recursiveExecute(JsonPathItem *jsp, JsonbValue *jb, JsonPathItem *jspLeftArg,
 				}
 			}
 			break;
-			/*
+
 		case jpiIndexArray:
 			if (JsonbType(jb) == jbvArray)
 			{
 				JsonbValue		*v;
+				bool			hasNext;
+				int				i;
 
-				jspGetNext(jsp, &elem);
+				hasNext = jspGetNext(jsp, &elem);
 
-				v = getIthJsonbValueFromContainer(jb->val.binary.data,
-												  jsp->arrayIndex);
+				for(i=0; i<jsp->array.nelems; i++)
+				{
+					v = getIthJsonbValueFromContainer(jb->val.binary.data,
+													  jsp->array.elems[i]);
 
-				res = v && recursiveExecute(&elem, v, NULL, found);
+					if (v == NULL)
+						continue;
+
+					if (hasNext == true)
+					{
+						res = recursiveExecute(&elem, v, NULL, found);
+
+						if (res == jperError || found == NULL)
+							break;
+
+						if (res == jperOk && found == NULL)
+								break;
+					}
+					else
+					{
+						res = jperOk;
+
+						if (found == NULL)
+							break;
+
+						*found = lappend(*found, v);
+					}
+				}
 			}
 			break;
-			*/
 		case jpiAnyKey:
 			if (JsonbType(jb) == jbvObject)
 			{
@@ -709,7 +766,10 @@ recursiveExecute(JsonPathItem *jsp, JsonbValue *jb, JsonPathItem *jspLeftArg,
 						{
 							res = recursiveExecute(&elem, &v, NULL, found);
 
-							if (res == jperError || found == NULL)
+							if (res == jperError)
+								break;
+
+							if (res == jperOk && found == NULL)
 								break;
 						}
 						else
