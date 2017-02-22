@@ -641,3 +641,14 @@ select * from _jsonpath_object('$.[1].a', '[12, {"a": 13}, {"b": 14}]');
 select * from _jsonpath_object('$.[2].a', '[12, {"a": 13}, {"b": 14}]');
 select * from _jsonpath_object('$.[0,1].a', '[12, {"a": 13}, {"b": 14}]');
 select * from _jsonpath_object('$.[0 to 10].a', '[12, {"a": 13}, {"b": 14}]');
+
+select * from _jsonpath_object('$', '{"a": 10}');
+select * from _jsonpath_object('$ ? (a < $value)', '{"a": 10}');
+select * from _jsonpath_object('$ ? (a < $value)', '{"a": 10}', '{"value" : 13}');
+select * from _jsonpath_object('$ ? (a < $value)', '{"a": 10}', '{"value" : 8}');
+select * from _jsonpath_object('$.a ? (@ < $value)', '{"a": 10}', '{"value" : 13}');
+select * from _jsonpath_object('$.[*] ? (@ < $value)', '[10,11,12,13,14,15]', '{"value" : 13}');
+select * from _jsonpath_object('$.[0,1] ? (@ < $value)', '[10,11,12,13,14,15]', '{"value" : 13}');
+select * from _jsonpath_object('$.[0 to 2] ? (@ < $value)', '[10,11,12,13,14,15]', '{"value" : 15}');
+select * from _jsonpath_object('$.[*] ? (@ = "1")', '[1,"1",2,"2",null]');
+select * from _jsonpath_object('$.[*] ? (@ = $value)', '[1,"1",2,"2",null]', '{"value" : "1"}');
