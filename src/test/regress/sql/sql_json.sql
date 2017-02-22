@@ -569,6 +569,8 @@ select '$.g ? (@.a = 1 || !a = 4 && b = 7)'::jsonpath;
 select '$.g ? (@.a = 1 || !(x >= 123 || a = 4) && b = 7)'::jsonpath;
 
 select '$.g ? (zip = $zip)'::jsonpath;
+select '$.a.[1,2, 3 to 16]'::jsonpath;
+select '$.a[1,2, 3 to 16]'::jsonpath;
 
 select '$ ? (a < 1)'::jsonpath;
 select '$ ? (a < -1)'::jsonpath;
@@ -628,6 +630,8 @@ select _jsonpath_exist('$.*', '{}');
 select _jsonpath_exist('$.*', '{"a": 1}');
 select _jsonpath_exist('$.[*]', '[]');
 select _jsonpath_exist('$.[*]', '[1]');
+select _jsonpath_exist('$.[1]', '[1]');
+select _jsonpath_exist('$.[0]', '[1]');
 
 select * from _jsonpath_object('$.a', '{"a": 12, "b": {"a": 13}}');
 select * from _jsonpath_object('$.b', '{"a": 12, "b": {"a": 13}}');
@@ -635,4 +639,8 @@ select * from _jsonpath_object('$.*', '{"a": 12, "b": {"a": 13}}');
 select * from _jsonpath_object('$.*.a', '{"a": 12, "b": {"a": 13}}');
 select * from _jsonpath_object('$.[*].a', '[12, {"a": 13}, {"b": 14}]');
 select * from _jsonpath_object('$.[*].*', '[12, {"a": 13}, {"b": 14}]');
-
+select * from _jsonpath_object('$.[0].a', '[12, {"a": 13}, {"b": 14}]');
+select * from _jsonpath_object('$.[1].a', '[12, {"a": 13}, {"b": 14}]');
+select * from _jsonpath_object('$.[2].a', '[12, {"a": 13}, {"b": 14}]');
+select * from _jsonpath_object('$.[0,1].a', '[12, {"a": 13}, {"b": 14}]');
+select * from _jsonpath_object('$.[0 to 10].a', '[12, {"a": 13}, {"b": 14}]');

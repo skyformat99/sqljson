@@ -1744,6 +1744,18 @@ select '$.g ? (zip = $zip)'::jsonpath;
  $."g"?("zip" = $"zip")
 (1 row)
 
+select '$.a.[1,2, 3 to 16]'::jsonpath;
+                    jsonpath                    
+------------------------------------------------
+ $."a".[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
+(1 row)
+
+select '$.a[1,2, 3 to 16]'::jsonpath;
+                    jsonpath                    
+------------------------------------------------
+ $."a".[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
+(1 row)
+
 select '$ ? (a < 1)'::jsonpath;
   jsonpath   
 -------------
@@ -2086,6 +2098,18 @@ select _jsonpath_exist('$.[*]', '[1]');
  t
 (1 row)
 
+select _jsonpath_exist('$.[1]', '[1]');
+ _jsonpath_exist 
+-----------------
+ f
+(1 row)
+
+select _jsonpath_exist('$.[0]', '[1]');
+ _jsonpath_exist 
+-----------------
+ t
+(1 row)
+
 select * from _jsonpath_object('$.a', '{"a": 12, "b": {"a": 13}}');
  _jsonpath_object 
 ------------------
@@ -2123,4 +2147,32 @@ select * from _jsonpath_object('$.[*].*', '[12, {"a": 13}, {"b": 14}]');
  13
  14
 (2 rows)
+
+select * from _jsonpath_object('$.[0].a', '[12, {"a": 13}, {"b": 14}]');
+ _jsonpath_object 
+------------------
+(0 rows)
+
+select * from _jsonpath_object('$.[1].a', '[12, {"a": 13}, {"b": 14}]');
+ _jsonpath_object 
+------------------
+ 13
+(1 row)
+
+select * from _jsonpath_object('$.[2].a', '[12, {"a": 13}, {"b": 14}]');
+ _jsonpath_object 
+------------------
+(0 rows)
+
+select * from _jsonpath_object('$.[0,1].a', '[12, {"a": 13}, {"b": 14}]');
+ _jsonpath_object 
+------------------
+ 13
+(1 row)
+
+select * from _jsonpath_object('$.[0 to 10].a', '[12, {"a": 13}, {"b": 14}]');
+ _jsonpath_object 
+------------------
+ 13
+(1 row)
 
