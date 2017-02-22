@@ -2176,3 +2176,63 @@ select * from _jsonpath_object('$.[0 to 10].a', '[12, {"a": 13}, {"b": 14}]');
  13
 (1 row)
 
+select * from _jsonpath_object('$', '{"a": 10}');
+ _jsonpath_object 
+------------------
+ {"a": 10}
+(1 row)
+
+select * from _jsonpath_object('$ ? (a < $value)', '{"a": 10}');
+ERROR:  could not find 'value' passed variable
+select * from _jsonpath_object('$ ? (a < $value)', '{"a": 10}', '{"value" : 13}');
+ _jsonpath_object 
+------------------
+ {"a": 10}
+(1 row)
+
+select * from _jsonpath_object('$ ? (a < $value)', '{"a": 10}', '{"value" : 8}');
+ _jsonpath_object 
+------------------
+(0 rows)
+
+select * from _jsonpath_object('$.a ? (@ < $value)', '{"a": 10}', '{"value" : 13}');
+ _jsonpath_object 
+------------------
+ 10
+(1 row)
+
+select * from _jsonpath_object('$.[*] ? (@ < $value)', '[10,11,12,13,14,15]', '{"value" : 13}');
+ _jsonpath_object 
+------------------
+ 10
+ 11
+ 12
+(3 rows)
+
+select * from _jsonpath_object('$.[0,1] ? (@ < $value)', '[10,11,12,13,14,15]', '{"value" : 13}');
+ _jsonpath_object 
+------------------
+ 10
+ 11
+(2 rows)
+
+select * from _jsonpath_object('$.[0 to 2] ? (@ < $value)', '[10,11,12,13,14,15]', '{"value" : 15}');
+ _jsonpath_object 
+------------------
+ 10
+ 11
+ 12
+(3 rows)
+
+select * from _jsonpath_object('$.[*] ? (@ = "1")', '[1,"1",2,"2",null]');
+ _jsonpath_object 
+------------------
+ "1"
+(1 row)
+
+select * from _jsonpath_object('$.[*] ? (@ = $value)', '[1,"1",2,"2",null]', '{"value" : "1"}');
+ _jsonpath_object 
+------------------
+ "1"
+(1 row)
+
