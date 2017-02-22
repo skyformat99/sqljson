@@ -318,3 +318,96 @@ SELECT
 	js FORMAT JSONB IS JSON WITH UNIQUE KEYS "WITH UNIQUE"
 FROM
 	(SELECT js, js::jsonb::bytea FROM test_is_json WHERE js IS JSON) foo(js0, js);
+
+--jsonpath io
+
+select '$'::jsonpath;
+select '$.a'::jsonpath;
+select '$.a.v'::jsonpath;
+select '$.a.*'::jsonpath;
+select '$.*.[*]'::jsonpath;
+select '$.*[*]'::jsonpath;
+select '$.a.[*]'::jsonpath;
+select '$.a[*]'::jsonpath;
+select '$.a.[*][*]'::jsonpath;
+select '$.a.[*].[*]'::jsonpath;
+select '$.a[*][*]'::jsonpath;
+select '$.a[*].[*]'::jsonpath;
+
+select '$.g ? (@ = 1)'::jsonpath;
+select '$.g ? (a = 1)'::jsonpath;
+select '$.g ? (.a = 1)'::jsonpath;
+select '$.g ? (@.a = 1)'::jsonpath;
+select '$.g ? (@.a = 1 || a = 4)'::jsonpath;
+select '$.g ? (@.a = 1 && a = 4)'::jsonpath;
+select '$.g ? (@.a = 1 || a = 4 && b = 7)'::jsonpath;
+select '$.g ? (@.a = 1 || !a = 4 && b = 7)'::jsonpath;
+select '$.g ? (@.a = 1 || !(x >= 123 || a = 4) && b = 7)'::jsonpath;
+
+select '$.g ? (zip = $zip)'::jsonpath;
+
+select '$ ? (a < 1)'::jsonpath;
+select '$ ? (a < -1)'::jsonpath;
+select '$ ? (a < +1)'::jsonpath;
+select '$ ? (a < .1)'::jsonpath;
+select '$ ? (a < -.1)'::jsonpath;
+select '$ ? (a < +.1)'::jsonpath;
+select '$ ? (a < 0.1)'::jsonpath;
+select '$ ? (a < -0.1)'::jsonpath;
+select '$ ? (a < +0.1)'::jsonpath;
+select '$ ? (a < 10.1)'::jsonpath;
+select '$ ? (a < -10.1)'::jsonpath;
+select '$ ? (a < +10.1)'::jsonpath;
+select '$ ? (a < 1e1)'::jsonpath;
+select '$ ? (a < -1e1)'::jsonpath;
+select '$ ? (a < +1e1)'::jsonpath;
+select '$ ? (a < .1e1)'::jsonpath;
+select '$ ? (a < -.1e1)'::jsonpath;
+select '$ ? (a < +.1e1)'::jsonpath;
+select '$ ? (a < 0.1e1)'::jsonpath;
+select '$ ? (a < -0.1e1)'::jsonpath;
+select '$ ? (a < +0.1e1)'::jsonpath;
+select '$ ? (a < 10.1e1)'::jsonpath;
+select '$ ? (a < -10.1e1)'::jsonpath;
+select '$ ? (a < +10.1e1)'::jsonpath;
+select '$ ? (a < 1e-1)'::jsonpath;
+select '$ ? (a < -1e-1)'::jsonpath;
+select '$ ? (a < +1e-1)'::jsonpath;
+select '$ ? (a < .1e-1)'::jsonpath;
+select '$ ? (a < -.1e-1)'::jsonpath;
+select '$ ? (a < +.1e-1)'::jsonpath;
+select '$ ? (a < 0.1e-1)'::jsonpath;
+select '$ ? (a < -0.1e-1)'::jsonpath;
+select '$ ? (a < +0.1e-1)'::jsonpath;
+select '$ ? (a < 10.1e-1)'::jsonpath;
+select '$ ? (a < -10.1e-1)'::jsonpath;
+select '$ ? (a < +10.1e-1)'::jsonpath;
+select '$ ? (a < 1e+1)'::jsonpath;
+select '$ ? (a < -1e+1)'::jsonpath;
+select '$ ? (a < +1e+1)'::jsonpath;
+select '$ ? (a < .1e+1)'::jsonpath;
+select '$ ? (a < -.1e+1)'::jsonpath;
+select '$ ? (a < +.1e+1)'::jsonpath;
+select '$ ? (a < 0.1e+1)'::jsonpath;
+select '$ ? (a < -0.1e+1)'::jsonpath;
+select '$ ? (a < +0.1e+1)'::jsonpath;
+select '$ ? (a < 10.1e+1)'::jsonpath;
+select '$ ? (a < -10.1e+1)'::jsonpath;
+select '$ ? (a < +10.1e+1)'::jsonpath;
+
+select _jsonpath_exist('$.a.b', '{"a": 12}');
+select _jsonpath_exist('$.b', '{"a": 12}');
+select _jsonpath_exist('$.a.a', '{"a": {"a": 12}}');
+select _jsonpath_exist('$.*.a', '{"a": {"a": 12}}');
+select _jsonpath_exist('$.*.a', '{"b": {"a": 12}}');
+select _jsonpath_exist('$.*', '{}');
+select _jsonpath_exist('$.*', '{"a": 1}');
+select _jsonpath_exist('$.[*]', '[]');
+select _jsonpath_exist('$.[*]', '[1]');
+
+select * from _jsonpath_object('$.a', '{"a": 12, "b": {"a": 13}}');
+select * from _jsonpath_object('$.b', '{"a": 12, "b": {"a": 13}}');
+select * from _jsonpath_object('$.*', '{"a": 12, "b": {"a": 13}}');
+select * from _jsonpath_object('$.*.a', '{"a": 12, "b": {"a": 13}}');
+select * from _jsonpath_object('$.[*].a', '[12, {"a": 13}, {"b": 14}]');
+select * from _jsonpath_object('$.[*].*', '[12, {"a": 13}, {"b": 14}]');

@@ -844,3 +844,516 @@ FROM
  { "a": 1, "b": [{ "a": 1, "b": 0, "a": 2 }] } | t       | f           | t        | t         | f        | f         | t              | t
 (11 rows)
 
+--jsonpath io
+select '$'::jsonpath;
+ jsonpath 
+----------
+ $
+(1 row)
+
+select '$.a'::jsonpath;
+ jsonpath 
+----------
+ $."a"
+(1 row)
+
+select '$.a.v'::jsonpath;
+ jsonpath  
+-----------
+ $."a"."v"
+(1 row)
+
+select '$.a.*'::jsonpath;
+ jsonpath 
+----------
+ $."a".*
+(1 row)
+
+select '$.*.[*]'::jsonpath;
+ jsonpath 
+----------
+ $.*.[*]
+(1 row)
+
+select '$.*[*]'::jsonpath;
+ jsonpath 
+----------
+ $.*.[*]
+(1 row)
+
+select '$.a.[*]'::jsonpath;
+ jsonpath  
+-----------
+ $."a".[*]
+(1 row)
+
+select '$.a[*]'::jsonpath;
+ jsonpath  
+-----------
+ $."a".[*]
+(1 row)
+
+select '$.a.[*][*]'::jsonpath;
+   jsonpath    
+---------------
+ $."a".[*].[*]
+(1 row)
+
+select '$.a.[*].[*]'::jsonpath;
+   jsonpath    
+---------------
+ $."a".[*].[*]
+(1 row)
+
+select '$.a[*][*]'::jsonpath;
+   jsonpath    
+---------------
+ $."a".[*].[*]
+(1 row)
+
+select '$.a[*].[*]'::jsonpath;
+   jsonpath    
+---------------
+ $."a".[*].[*]
+(1 row)
+
+select '$.g ? (@ = 1)'::jsonpath;
+   jsonpath    
+---------------
+ $."g"?(@ = 1)
+(1 row)
+
+select '$.g ? (a = 1)'::jsonpath;
+    jsonpath     
+-----------------
+ $."g"?("a" = 1)
+(1 row)
+
+select '$.g ? (.a = 1)'::jsonpath;
+    jsonpath     
+-----------------
+ $."g"?("a" = 1)
+(1 row)
+
+select '$.g ? (@.a = 1)'::jsonpath;
+     jsonpath      
+-------------------
+ $."g"?(@."a" = 1)
+(1 row)
+
+select '$.g ? (@.a = 1 || a = 4)'::jsonpath;
+            jsonpath            
+--------------------------------
+ $."g"?((@."a" = 1 || "a" = 4))
+(1 row)
+
+select '$.g ? (@.a = 1 && a = 4)'::jsonpath;
+            jsonpath            
+--------------------------------
+ $."g"?((@."a" = 1 && "a" = 4))
+(1 row)
+
+select '$.g ? (@.a = 1 || a = 4 && b = 7)'::jsonpath;
+                  jsonpath                   
+---------------------------------------------
+ $."g"?((@."a" = 1 || ("a" = 4 && "b" = 7)))
+(1 row)
+
+select '$.g ? (@.a = 1 || !a = 4 && b = 7)'::jsonpath;
+                    jsonpath                    
+------------------------------------------------
+ $."g"?((@."a" = 1 || ((!"a" = 4) && "b" = 7)))
+(1 row)
+
+select '$.g ? (@.a = 1 || !(x >= 123 || a = 4) && b = 7)'::jsonpath;
+                            jsonpath                            
+----------------------------------------------------------------
+ $."g"?((@."a" = 1 || ((!("x" >= 123 || "a" = 4)) && "b" = 7)))
+(1 row)
+
+select '$.g ? (zip = $zip)'::jsonpath;
+        jsonpath        
+------------------------
+ $."g"?("zip" = $"zip")
+(1 row)
+
+select '$ ? (a < 1)'::jsonpath;
+  jsonpath   
+-------------
+ $?("a" < 1)
+(1 row)
+
+select '$ ? (a < -1)'::jsonpath;
+   jsonpath   
+--------------
+ $?("a" < -1)
+(1 row)
+
+select '$ ? (a < +1)'::jsonpath;
+  jsonpath   
+-------------
+ $?("a" < 1)
+(1 row)
+
+select '$ ? (a < .1)'::jsonpath;
+   jsonpath    
+---------------
+ $?("a" < 0.1)
+(1 row)
+
+select '$ ? (a < -.1)'::jsonpath;
+    jsonpath    
+----------------
+ $?("a" < -0.1)
+(1 row)
+
+select '$ ? (a < +.1)'::jsonpath;
+   jsonpath    
+---------------
+ $?("a" < 0.1)
+(1 row)
+
+select '$ ? (a < 0.1)'::jsonpath;
+   jsonpath    
+---------------
+ $?("a" < 0.1)
+(1 row)
+
+select '$ ? (a < -0.1)'::jsonpath;
+    jsonpath    
+----------------
+ $?("a" < -0.1)
+(1 row)
+
+select '$ ? (a < +0.1)'::jsonpath;
+   jsonpath    
+---------------
+ $?("a" < 0.1)
+(1 row)
+
+select '$ ? (a < 10.1)'::jsonpath;
+    jsonpath    
+----------------
+ $?("a" < 10.1)
+(1 row)
+
+select '$ ? (a < -10.1)'::jsonpath;
+    jsonpath     
+-----------------
+ $?("a" < -10.1)
+(1 row)
+
+select '$ ? (a < +10.1)'::jsonpath;
+    jsonpath    
+----------------
+ $?("a" < 10.1)
+(1 row)
+
+select '$ ? (a < 1e1)'::jsonpath;
+   jsonpath   
+--------------
+ $?("a" < 10)
+(1 row)
+
+select '$ ? (a < -1e1)'::jsonpath;
+   jsonpath    
+---------------
+ $?("a" < -10)
+(1 row)
+
+select '$ ? (a < +1e1)'::jsonpath;
+   jsonpath   
+--------------
+ $?("a" < 10)
+(1 row)
+
+select '$ ? (a < .1e1)'::jsonpath;
+  jsonpath   
+-------------
+ $?("a" < 1)
+(1 row)
+
+select '$ ? (a < -.1e1)'::jsonpath;
+   jsonpath   
+--------------
+ $?("a" < -1)
+(1 row)
+
+select '$ ? (a < +.1e1)'::jsonpath;
+  jsonpath   
+-------------
+ $?("a" < 1)
+(1 row)
+
+select '$ ? (a < 0.1e1)'::jsonpath;
+  jsonpath   
+-------------
+ $?("a" < 1)
+(1 row)
+
+select '$ ? (a < -0.1e1)'::jsonpath;
+   jsonpath   
+--------------
+ $?("a" < -1)
+(1 row)
+
+select '$ ? (a < +0.1e1)'::jsonpath;
+  jsonpath   
+-------------
+ $?("a" < 1)
+(1 row)
+
+select '$ ? (a < 10.1e1)'::jsonpath;
+   jsonpath    
+---------------
+ $?("a" < 101)
+(1 row)
+
+select '$ ? (a < -10.1e1)'::jsonpath;
+    jsonpath    
+----------------
+ $?("a" < -101)
+(1 row)
+
+select '$ ? (a < +10.1e1)'::jsonpath;
+   jsonpath    
+---------------
+ $?("a" < 101)
+(1 row)
+
+select '$ ? (a < 1e-1)'::jsonpath;
+   jsonpath    
+---------------
+ $?("a" < 0.1)
+(1 row)
+
+select '$ ? (a < -1e-1)'::jsonpath;
+    jsonpath    
+----------------
+ $?("a" < -0.1)
+(1 row)
+
+select '$ ? (a < +1e-1)'::jsonpath;
+   jsonpath    
+---------------
+ $?("a" < 0.1)
+(1 row)
+
+select '$ ? (a < .1e-1)'::jsonpath;
+    jsonpath    
+----------------
+ $?("a" < 0.01)
+(1 row)
+
+select '$ ? (a < -.1e-1)'::jsonpath;
+    jsonpath     
+-----------------
+ $?("a" < -0.01)
+(1 row)
+
+select '$ ? (a < +.1e-1)'::jsonpath;
+    jsonpath    
+----------------
+ $?("a" < 0.01)
+(1 row)
+
+select '$ ? (a < 0.1e-1)'::jsonpath;
+    jsonpath    
+----------------
+ $?("a" < 0.01)
+(1 row)
+
+select '$ ? (a < -0.1e-1)'::jsonpath;
+    jsonpath     
+-----------------
+ $?("a" < -0.01)
+(1 row)
+
+select '$ ? (a < +0.1e-1)'::jsonpath;
+    jsonpath    
+----------------
+ $?("a" < 0.01)
+(1 row)
+
+select '$ ? (a < 10.1e-1)'::jsonpath;
+    jsonpath    
+----------------
+ $?("a" < 1.01)
+(1 row)
+
+select '$ ? (a < -10.1e-1)'::jsonpath;
+    jsonpath     
+-----------------
+ $?("a" < -1.01)
+(1 row)
+
+select '$ ? (a < +10.1e-1)'::jsonpath;
+    jsonpath    
+----------------
+ $?("a" < 1.01)
+(1 row)
+
+select '$ ? (a < 1e+1)'::jsonpath;
+   jsonpath   
+--------------
+ $?("a" < 10)
+(1 row)
+
+select '$ ? (a < -1e+1)'::jsonpath;
+   jsonpath    
+---------------
+ $?("a" < -10)
+(1 row)
+
+select '$ ? (a < +1e+1)'::jsonpath;
+   jsonpath   
+--------------
+ $?("a" < 10)
+(1 row)
+
+select '$ ? (a < .1e+1)'::jsonpath;
+  jsonpath   
+-------------
+ $?("a" < 1)
+(1 row)
+
+select '$ ? (a < -.1e+1)'::jsonpath;
+   jsonpath   
+--------------
+ $?("a" < -1)
+(1 row)
+
+select '$ ? (a < +.1e+1)'::jsonpath;
+  jsonpath   
+-------------
+ $?("a" < 1)
+(1 row)
+
+select '$ ? (a < 0.1e+1)'::jsonpath;
+  jsonpath   
+-------------
+ $?("a" < 1)
+(1 row)
+
+select '$ ? (a < -0.1e+1)'::jsonpath;
+   jsonpath   
+--------------
+ $?("a" < -1)
+(1 row)
+
+select '$ ? (a < +0.1e+1)'::jsonpath;
+  jsonpath   
+-------------
+ $?("a" < 1)
+(1 row)
+
+select '$ ? (a < 10.1e+1)'::jsonpath;
+   jsonpath    
+---------------
+ $?("a" < 101)
+(1 row)
+
+select '$ ? (a < -10.1e+1)'::jsonpath;
+    jsonpath    
+----------------
+ $?("a" < -101)
+(1 row)
+
+select '$ ? (a < +10.1e+1)'::jsonpath;
+   jsonpath    
+---------------
+ $?("a" < 101)
+(1 row)
+
+select _jsonpath_exist('$.a.b', '{"a": 12}');
+ _jsonpath_exist 
+-----------------
+ f
+(1 row)
+
+select _jsonpath_exist('$.b', '{"a": 12}');
+ _jsonpath_exist 
+-----------------
+ f
+(1 row)
+
+select _jsonpath_exist('$.a.a', '{"a": {"a": 12}}');
+ _jsonpath_exist 
+-----------------
+ t
+(1 row)
+
+select _jsonpath_exist('$.*.a', '{"a": {"a": 12}}');
+ _jsonpath_exist 
+-----------------
+ t
+(1 row)
+
+select _jsonpath_exist('$.*.a', '{"b": {"a": 12}}');
+ _jsonpath_exist 
+-----------------
+ t
+(1 row)
+
+select _jsonpath_exist('$.*', '{}');
+ _jsonpath_exist 
+-----------------
+ f
+(1 row)
+
+select _jsonpath_exist('$.*', '{"a": 1}');
+ _jsonpath_exist 
+-----------------
+ t
+(1 row)
+
+select _jsonpath_exist('$.[*]', '[]');
+ _jsonpath_exist 
+-----------------
+ f
+(1 row)
+
+select _jsonpath_exist('$.[*]', '[1]');
+ _jsonpath_exist 
+-----------------
+ t
+(1 row)
+
+select * from _jsonpath_object('$.a', '{"a": 12, "b": {"a": 13}}');
+ _jsonpath_object 
+------------------
+ 12
+(1 row)
+
+select * from _jsonpath_object('$.b', '{"a": 12, "b": {"a": 13}}');
+ _jsonpath_object 
+------------------
+ {"a": 13}
+(1 row)
+
+select * from _jsonpath_object('$.*', '{"a": 12, "b": {"a": 13}}');
+ _jsonpath_object 
+------------------
+ 12
+ {"a": 13}
+(2 rows)
+
+select * from _jsonpath_object('$.*.a', '{"a": 12, "b": {"a": 13}}');
+ _jsonpath_object 
+------------------
+ 13
+(1 row)
+
+select * from _jsonpath_object('$.[*].a', '[12, {"a": 13}, {"b": 14}]');
+ _jsonpath_object 
+------------------
+ 13
+(1 row)
+
+select * from _jsonpath_object('$.[*].*', '[12, {"a": 13}, {"b": 14}]');
+ _jsonpath_object 
+------------------
+ 13
+ 14
+(2 rows)
+
