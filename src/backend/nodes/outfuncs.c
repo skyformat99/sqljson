@@ -1675,6 +1675,7 @@ _outJsonExpr(StringInfo str, const JsonExpr *node)
 	WRITE_NODE_FIELD(formatted_expr);
 	WRITE_NODE_FIELD(result_expr);
 	WRITE_BOOL_FIELD(coerce_via_io);
+	WRITE_OID_FIELD(coerce_via_io_collation);
 	WRITE_ENUM_FIELD(format.type, JsonFormatType);
 	WRITE_ENUM_FIELD(format.encoding, JsonEncoding);
 	WRITE_LOCATION_FIELD(format.location);

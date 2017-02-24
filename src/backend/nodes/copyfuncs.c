@@ -2136,6 +2136,7 @@ _copyJsonExpr(const JsonExpr *from)
 	COPY_NODE_FIELD(formatted_expr);
 	COPY_NODE_FIELD(result_expr);
 	COPY_SCALAR_FIELD(coerce_via_io);
+	COPY_SCALAR_FIELD(coerce_via_io_collation);
 	COPY_SCALAR_FIELD(format);
 	COPY_NODE_FIELD(path_spec);
 	COPY_NODE_FIELD(passing.values);

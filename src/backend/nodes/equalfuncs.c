@@ -824,6 +824,7 @@ _equalJsonExpr(const JsonExpr *a, const JsonExpr *b)
 	COMPARE_NODE_FIELD(formatted_expr);
 	COMPARE_NODE_FIELD(result_expr);
 	COMPARE_SCALAR_FIELD(coerce_via_io);
+	COMPARE_SCALAR_FIELD(coerce_via_io_collation);
 	COMPARE_SCALAR_FIELD(format.type);
 	COMPARE_SCALAR_FIELD(format.encoding);
 	COMPARE_LOCATION_FIELD(format.location);
