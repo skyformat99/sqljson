@@ -1374,11 +1374,10 @@ typedef struct TriggerTransition
 
 typedef enum
 {
-	JTC_REGULAR,
 	JTC_FOR_ORDINALITY,
+	JTC_REGULAR,
 	JTC_FORMATTED,
 	JTC_NESTED,
-	JTC_CHAINING
 } JsonTableColumnType;
 
 typedef enum JsonQuotes
@@ -1417,8 +1416,9 @@ typedef struct JsonCommon
 	NodeTag		type;
 	JsonValueExpr *expr;
 	JsonPathSpec pathspec;
-	char	   *as_path;
+	char	   *pathname;
 	List	   *passing;
+	int			location;
 } JsonCommon;
 
 typedef struct JsonFuncExpr
@@ -1441,59 +1441,54 @@ typedef struct JsonTableColumn
 	char	   *name;
 	TypeName   *typename;
 	JsonPathSpec pathspec;
-	char	   *aspath;
+	char	   *pathname;
 	JsonFormat	format;
 	JsonWrapper	wrapper;
 	bool		omit_quotes;
 	List	   *columns;
 	JsonBehavior *on_empty;
 	JsonBehavior *on_error;
+	int			location;
 } JsonTableColumn;
 
-typedef enum
+typedef enum JsonTablePlanType
 {
-	JSTP_INNER,
-	JSTP_OUTER,
-	JSTP_CROSS,
-	JSTP_UNION,
+	JSTP_DEFAULT,
+	JSTP_SIMPLE,
+	JSTP_JOINED,
 } JsonTablePlanType;
 
-typedef struct JsonTableSimplePlan
+typedef enum JsonTablePlanJoinType
+{
+	JSTP_INNER = 0x01,
+	JSTP_OUTER = 0x02,
+	JSTP_CROSS = 0x04,
+	JSTP_UNION = 0x08,
+} JsonTablePlanJoinType;
+
+typedef struct JsonTablePlan JsonTablePlan;
+
+struct JsonTablePlan
 {
 	NodeTag		type;
-	char	   *name;
-} JsonTableSimplePlan;
+	JsonTablePlanType plan_type;
+	JsonTablePlanJoinType join_type;
+	char	   *pathname;	/* for simple plan */
+	JsonTablePlan *plan1;	/* for joined plan */
+	JsonTablePlan *plan2;	/* for joined plan */
+	int			location;
+};
 
-typedef struct JsonTableJoinedPlan
-{
-	NodeTag		type;
-	JsonTablePlanType plantype;
-	Node	   *plan1;
-	Node	   *plan2;
-} JsonTableJoinedPlan;
-
-typedef struct JsonTableDefaultPlan
-{
-	NodeTag		type;
-	JsonTablePlanType plantype;
-} JsonTableDefaultPlan;
-
-typedef struct JsonTablePrimitive
+typedef struct JsonTable
 {
 	NodeTag		type;
 	JsonCommon *common;
 	List	   *columns;
+	JsonTablePlan *plan;
 	JsonBehavior *on_error;
-} JsonTablePrimitive;
-
-typedef struct JsonTableFunc
-{
-	NodeTag		type;
-	JsonCommon *common;
-	List	   *columns;
-	Node	   *plan;
-	JsonBehavior *on_error;
-} JsonTableFunc;
+	Alias	   *alias;
+	int			location;
+} JsonTable;
 
 typedef enum JsonValueType
 {

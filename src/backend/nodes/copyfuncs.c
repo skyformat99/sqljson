@@ -2227,8 +2227,9 @@ _copyJsonCommon(const JsonCommon *from)
 
 	COPY_NODE_FIELD(expr);
 	COPY_STRING_FIELD(pathspec);
-	COPY_STRING_FIELD(as_path);
+	COPY_STRING_FIELD(pathname);
 	COPY_NODE_FIELD(passing);
+	COPY_SCALAR_FIELD(location);
 
 	return newnode;
 }

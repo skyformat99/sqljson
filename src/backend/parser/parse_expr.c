@@ -4179,7 +4179,7 @@ transformJsonExprCommon(ParseState *pstate, JsonFuncExpr *func)
 {
 	JsonExpr   *jsexpr = makeNode(JsonExpr);
 
-	if (func->common->as_path)
+	if (func->common->pathname)
 		ereport(ERROR,
 				(errcode(ERRCODE_SYNTAX_ERROR),
 				 errmsg("JSON_TABLE path name is not allowed here"),

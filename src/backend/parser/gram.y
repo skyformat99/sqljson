@@ -615,9 +615,6 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 					json_table_plan_cross
 					json_table_plan_primary
 					json_table_default_plan
-					json_table_primitive
-					json_table_primitive_column_definition
-					json_table_primitive_chaining_column
 					json_output_clause_opt
 					json_value_constructor
 					json_object_constructor
@@ -635,8 +632,6 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 					json_passing_clause_opt
 					json_table_columns_clause
 					json_table_column_definition_list
-					json_table_primitive_columns_clause
-					json_table_primitive_column_definition_list
 					json_name_and_value_list
 					json_value_expr_list
 					json_array_aggregate_order_by_clause_opt
@@ -11647,13 +11642,11 @@ table_ref:	relation_expr opt_alias_clause
 					$2->alias = $4;
 					$$ = (Node *) $2;
 				}
-			| json_table
+			| json_table opt_alias_clause
 				{
-					$$ = $1;
-				}
-			| json_table_primitive
-				{
-					$$ = $1;
+					JsonTable *jt = castNode(JsonTable, $1);
+					jt->alias = $2;
+					$$ = (Node *) jt;					
 				}
 		;
 
@@ -14451,8 +14444,9 @@ json_api_common_syntax:
 					JsonCommon *n = makeNode(JsonCommon);
 					n->expr = (JsonValueExpr *) $1;
 					n->pathspec = $3;
-					n->as_path = $4;
+					n->pathname = $4;
 					n->passing = $5;
+					n->location = @1;
 					$$ = (Node *) n;
 				}
 		;
@@ -14694,11 +14688,12 @@ json_table:
 				json_table_error_clause_opt
 			')'
 				{
-					JsonTableFunc *n = makeNode(JsonTableFunc);
+					JsonTable *n = makeNode(JsonTable);
 					n->common = (JsonCommon *) $3;
 					n->columns = $4;
-					n->plan = $5;
+					n->plan = (JsonTablePlan *) $5;
 					n->on_error = $6;
+					n->location = @1;
 					$$ = (Node *) n;
 				}
 		;
@@ -14727,6 +14722,7 @@ json_table_ordinality_column_definition:
 					JsonTableColumn *n = makeNode(JsonTableColumn);
 					n->coltype = JTC_FOR_ORDINALITY;
 					n->name = $1;
+					n->location = @1;
 					$$ = (Node *) n;
 				}
 		;
@@ -14740,9 +14736,14 @@ json_table_regular_column_definition:
 					n->coltype = JTC_REGULAR;
 					n->name = $1;
 					n->typename = $2;
+					n->format.type = JS_FORMAT_DEFAULT;
+					n->format.encoding = JS_ENC_DEFAULT;
+					n->wrapper = JSW_NONE;
+					n->omit_quotes = false;
 					n->pathspec = $3;
 					n->on_empty = $4.on_empty;
 					n->on_error = $4.on_error;
+					n->location = @1;
 					$$ = (Node *) n;
 				}
 		;
@@ -14784,6 +14785,7 @@ json_table_formatted_column_definition:
 					n->omit_quotes = $7 == JS_QUOTES_OMIT;
 					n->on_empty = $8.on_empty;
 					n->on_error = $8.on_error;
+					n->location = @1;
 					$$ = (Node *) n;
 				}
 		;
@@ -14796,8 +14798,9 @@ json_table_nested_columns:
 					JsonTableColumn *n = makeNode(JsonTableColumn);
 					n->coltype = JTC_NESTED;
 					n->pathspec = $3;
-					n->aspath = $4;
+					n->pathname = $4;
 					n->columns = $5;
+					n->location = @1;
 					$$ = (Node *) n;
 				}
 		;
@@ -14826,8 +14829,10 @@ json_table_plan:
 json_table_plan_simple:
 			json_table_path_name
 				{
-					JsonTableSimplePlan *n = makeNode(JsonTableSimplePlan);
-					n->name = $1;
+					JsonTablePlan *n = makeNode(JsonTablePlan);
+					n->plan_type = JSTP_SIMPLE;
+					n->pathname = $1;
+					n->location = @1;
 					$$ = (Node *) n;
 				}
 		;
@@ -14839,12 +14844,12 @@ json_table_plan_parent_child:
 
 json_table_plan_outer:
 			json_table_plan_simple OUTER_P json_table_plan_primary
-				{ $$ = makeJsonTableJoinedPlan(JSTP_OUTER, $1, $3); }
+				{ $$ = makeJsonTableJoinedPlan(JSTP_OUTER, $1, $3, @1); }
 		;
 
 json_table_plan_inner:
 			json_table_plan_simple INNER_P json_table_plan_primary
-				{ $$ = makeJsonTableJoinedPlan(JSTP_INNER, $1, $3); }
+				{ $$ = makeJsonTableJoinedPlan(JSTP_INNER, $1, $3, @1); }
 		;
 
 json_table_plan_sibling:
@@ -14854,28 +14859,34 @@ json_table_plan_sibling:
 
 json_table_plan_union:
 			json_table_plan_primary UNION json_table_plan_primary
-				{ $$ = makeJsonTableJoinedPlan(JSTP_UNION, $1, $3); }
+				{ $$ = makeJsonTableJoinedPlan(JSTP_UNION, $1, $3, @1); }
 			| json_table_plan_union UNION json_table_plan_primary
-				{ $$ = makeJsonTableJoinedPlan(JSTP_UNION, $1, $3); }
+				{ $$ = makeJsonTableJoinedPlan(JSTP_UNION, $1, $3, @1); }
 		;
 
 json_table_plan_cross:
 			json_table_plan_primary CROSS json_table_plan_primary
-				{ $$ = makeJsonTableJoinedPlan(JSTP_CROSS, $1, $3); }
+				{ $$ = makeJsonTableJoinedPlan(JSTP_CROSS, $1, $3, @1); }
 			| json_table_plan_cross CROSS json_table_plan_primary
-				{ $$ = makeJsonTableJoinedPlan(JSTP_CROSS, $1, $3); }
+				{ $$ = makeJsonTableJoinedPlan(JSTP_CROSS, $1, $3, @1); }
 		;
 
 json_table_plan_primary:
 			json_table_plan_simple						{ $$ = $1; }
-			| '(' json_table_plan ')'					{ $$ = $2; }
+			| '(' json_table_plan ')'
+				{
+					castNode(JsonTablePlan, $2)->location = @1;
+					$$ = $2;
+				}
 		;
 
 json_table_default_plan:
 			PLAN DEFAULT '(' json_table_default_plan_choices ')'
 			{
-				JsonTableDefaultPlan *n = makeNode(JsonTableDefaultPlan);
-				n->plantype = $4;
+				JsonTablePlan *n = makeNode(JsonTablePlan);
+				n->plan_type = JSTP_DEFAULT;
+				n->join_type = $4;
+				n->location = @1;
 				$$ = (Node *) n;
 			}
 		;
@@ -14890,58 +14901,13 @@ json_table_default_plan_choices:
 		;
 
 json_table_default_plan_inner_outer:
-			INNER_P										{ $$ = 1; }
-			| OUTER_P									{ $$ = 0; }
+			INNER_P										{ $$ = JSTP_INNER; }
+			| OUTER_P									{ $$ = JSTP_OUTER; }
 		;
 
 json_table_default_plan_union_cross:
-			UNION										{ $$ = 2; }
-			| CROSS										{ $$ = 0; }
-		;
-
-json_table_primitive:
-			JSON_TABLE_PRIMITIVE '('
-				json_api_common_syntax
-				json_table_primitive_columns_clause
-				json_table_error_behavior ON ERROR_P
-			')'
-				{
-					JsonTablePrimitive *n = makeNode(JsonTablePrimitive);
-					n->common = (JsonCommon *) $3;
-					n->columns = $4;
-					n->on_error = $5;
-					$$ = (Node *) n;
-				}
-		;
-
-json_table_primitive_columns_clause:
-			COLUMNS '(' json_table_primitive_column_definition_list ')'
-				{ $$ = $3; }
-		;
-
-json_table_primitive_column_definition_list:
-			json_table_primitive_column_definition
-				{ $$ = list_make1($1); }
-			| json_table_primitive_column_definition_list ','
-			  json_table_primitive_column_definition
-				{ $$ = lappend($1, $3); }
-		;
-
-json_table_primitive_column_definition:
-			json_table_ordinality_column_definition
-			| json_table_regular_column_definition
-			| json_table_formatted_column_definition
-			| json_table_primitive_chaining_column
-		;
-
-json_table_primitive_chaining_column:
-			ColId FOR CHAINING
-			{
-				JsonTableColumn *n = makeNode(JsonTableColumn);
-				n->coltype = JTC_CHAINING;
-				n->name = $1;
-				$$ = (Node *) n;
-			}
+			UNION										{ $$ = JSTP_UNION; }
+			| CROSS										{ $$ = JSTP_CROSS; }
 		;
 
 json_output_clause_opt:
