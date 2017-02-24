@@ -4505,6 +4505,9 @@ DATA(insert OID = 6060 (  json_is_valid	       PGNSP PGUID 12 1 0 0 0 f f f f t 
 DESCR("check json value type and key uniqueness");
 DATA(insert OID = 6061 (  json_is_valid	       PGNSP PGUID 12 1 0 0 0 f f f f t f i s 3 0 16 "25 25 16" _null_ _null_ _null_ _null_ _null_ json_is_valid _null_ _null_ _null_ ));
 DESCR("check json text validity, value type and key uniqueness");
+DATA(insert OID = 6069 (  json_from_text_safe  PGNSP PGUID 12 1 0 0 0 f f f f t f i s 1 0 114 "25" _null_ _null_ _null_ _null_ _null_ json_from_text_safe _null_ _null_ _null_ ));
+DESCR("text to json, returning NULL on error");
+
 
 DATA(insert OID = 3947 (  json_object_field			PGNSP PGUID 12 1 0 0 0 f f f f t f i s 2 0 114 "114 25" _null_ _null_ "{from_json, field_name}" _null_ _null_ json_object_field _null_ _null_ _null_ ));
 DATA(insert OID = 3948 (  json_object_field_text	PGNSP PGUID 12 1 0 0 0 f f f f t f i s 2 0 25  "114 25" _null_ _null_ "{from_json, field_name}" _null_ _null_ json_object_field_text _null_ _null_ _null_ ));
@@ -4926,8 +4929,12 @@ DATA(insert OID =  3804 (  jsonb_out		PGNSP PGUID 12 1 0 0 0 f f f f t f i s 1 0
 DESCR("I/O");
 DATA(insert OID =  3803 (  jsonb_send		PGNSP PGUID 12 1 0 0 0 f f f f t f i s 1 0 17 "3802" _null_ _null_ _null_ _null_ _null_ jsonb_send _null_ _null_ _null_ ));
 DESCR("I/O");
-DATA(insert OID =  6105 (  jsonb_from_bytea	PGNSP PGUID 12 1 0 0 0 f f f f t f i s 1 0 3802 "17" _null_ _null_ _null_ _null_ _null_ jsonb_from_bytea _null_ _null_ _null_ ));
+DATA(insert OID =  6070 (  jsonb_from_bytea	PGNSP PGUID 12 1 0 0 0 f f f f t f i s 1 0 3802 "17" _null_ _null_ _null_ _null_ _null_ jsonb_from_bytea _null_ _null_ _null_ ));
 DESCR("bytea to jsonb");
+DATA(insert OID =  6071 (  jsonb_from_bytea_safe PGNSP PGUID 12 1 0 0 0 f f f f t f i s 1 0 3802 "17" _null_ _null_ _null_ _null_ _null_ jsonb_from_bytea_safe _null_ _null_ _null_ ));
+DESCR("bytea to jsonb, returning NULL on error");
+DATA(insert OID =  6072 (  jsonb_from_text_safe	 PGNSP PGUID 12 1 0 0 0 f f f f t f i s 1 0 3802 "25" _null_ _null_ _null_ _null_ _null_ jsonb_from_text_safe _null_ _null_ _null_ ));
+DESCR("text to jsonb, returning NULL on error");
 
 DATA(insert OID = 3263 (  jsonb_object	 PGNSP PGUID 12 1 0 0 0 f f f f t f i s 1 0 3802 "1009" _null_ _null_ _null_ _null_ _null_ jsonb_object _null_ _null_ _null_ ));
 DESCR("map text array of key value pairs to jsonb object");

@@ -14497,6 +14497,7 @@ json_value_expr:
 				JsonValueExpr *n = makeNode(JsonValueExpr);
 				n->expr = (Expr *) $1;
 				n->format = $2;
+				n->null_on_error = false;
 				$$ = (Node *) n;
 			}
 		;
