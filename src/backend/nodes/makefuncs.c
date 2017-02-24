@@ -625,13 +625,16 @@ makeJsonBehavior(JsonBehaviorType type, Node *expr)
 }
 
 Node *
-makeJsonTableJoinedPlan(JsonTablePlanType type, Node *plan1, Node *plan2)
+makeJsonTableJoinedPlan(JsonTablePlanJoinType type, Node *plan1, Node *plan2,
+						int location)
 {
-	JsonTableJoinedPlan *n = makeNode(JsonTableJoinedPlan);
+	JsonTablePlan *n = makeNode(JsonTablePlan);
 
-	n->plantype = type;
-	n->plan1 = plan1;
-	n->plan2 = plan2;
+	n->plan_type = JSTP_JOINED;
+	n->join_type = type;
+	n->plan1 = castNode(JsonTablePlan, plan1);
+	n->plan2 = castNode(JsonTablePlan, plan2);
+	n->location = location;
 
 	return (Node *) n;
 }

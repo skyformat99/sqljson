@@ -12,11 +12,13 @@
  */
 #include "postgres.h"
 
+#include "funcapi.h"
 #include "miscadmin.h"
 #include "access/htup_details.h"
 #include "access/transam.h"
 #include "catalog/pg_type.h"
 #include "libpq/pqformat.h"
+#include "nodes/execnodes.h"
 #include "parser/parse_coerce.h"
 #include "utils/builtins.h"
 #include "utils/date.h"
@@ -25,7 +27,9 @@
 #include "utils/json.h"
 #include "utils/jsonapi.h"
 #include "utils/jsonb.h"
+#include "utils/memutils.h"
 #include "utils/syscache.h"
+#include "utils/tuplestore.h"
 #include "utils/typcache.h"
 
 typedef struct JsonbInState
@@ -2612,6 +2616,79 @@ JsonbPathValue(Jsonb *jb, JsonPath jp, bool *empty, void *args)
 		res = JsonbValueToJsonb(jbv);
 
 	return res;
+}
+
+Datum
+jsonb_unnest_path(PG_FUNCTION_ARGS)
+{
+	Jsonb	   *jb = PG_GETARG_JSONB(0);
+	JsonPath	jp = PG_GETARG_JSONPATH(1);
+	ReturnSetInfo *rsi;
+	Tuplestorestate *tuple_store;
+	TupleDesc	tupdesc;
+	TupleDesc	ret_tdesc;
+	MemoryContext old_cxt,
+				tmp_cxt;
+	JsonbPathIterator *it;
+	JsonbValue *jbv;
+
+	rsi = (ReturnSetInfo *) fcinfo->resultinfo;
+
+	if (!rsi || !IsA(rsi, ReturnSetInfo) ||
+		(rsi->allowedModes & SFRM_Materialize) == 0 ||
+		rsi->expectedDesc == NULL)
+		ereport(ERROR,
+				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				 errmsg("set-valued function called in context that "
+						"cannot accept a set")));
+
+	rsi->returnMode = SFRM_Materialize;
+
+	/* it's a simple type, so don't use get_call_result_type() */
+	tupdesc = rsi->expectedDesc;
+
+	old_cxt = MemoryContextSwitchTo(rsi->econtext->ecxt_per_query_memory);
+
+	ret_tdesc = CreateTupleDescCopy(tupdesc);
+	BlessTupleDesc(ret_tdesc);
+	tuple_store =
+		tuplestore_begin_heap(rsi->allowedModes & SFRM_Materialize_Random,
+							  false, work_mem);
+
+	MemoryContextSwitchTo(old_cxt);
+
+	tmp_cxt = AllocSetContextCreate(CurrentMemoryContext,
+									"jsonb_unnest_path temporary cxt",
+									ALLOCSET_DEFAULT_SIZES);
+
+	it = jsonbPathIteratorInit(jb, jp, fcinfo, 2);
+
+	while ((jbv = jsonbPathIteratorNext(it)))
+	{
+		HeapTuple	tuple;
+		Datum		values[1];
+		bool		nulls[1] = {false};
+
+		/* use the tmp context so we can clean up after each tuple is done */
+		old_cxt = MemoryContextSwitchTo(tmp_cxt);
+
+		values[0] = JsonbGetDatum(JsonbValueToJsonb(jbv));
+
+		tuple = heap_form_tuple(ret_tdesc, values, nulls);
+
+		tuplestore_puttuple(tuple_store, tuple);
+
+		/* clean up and switch back */
+		MemoryContextSwitchTo(old_cxt);
+		MemoryContextReset(tmp_cxt);
+	}
+
+	MemoryContextDelete(tmp_cxt);
+
+	rsi->setResult = tuple_store;
+	rsi->setDesc = ret_tdesc;
+
+	PG_RETURN_NULL();
 }
 
 Jsonb *
