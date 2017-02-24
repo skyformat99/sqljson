@@ -1402,6 +1402,7 @@ typedef struct JsonValueExpr
 	NodeTag		type;
 	Expr	   *expr;
 	JsonFormat  format;
+	bool		null_on_error;
 } JsonValueExpr;
 
 typedef struct JsonArgument

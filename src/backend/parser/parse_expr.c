@@ -3572,6 +3572,45 @@ transformJsonValueExprExt(ParseState *pstate, JsonValueExpr *ve,
 			exprtype = TEXTOID;
 		}
 
+		if (ve->null_on_error)
+		{
+			if (format == JS_FORMAT_JSONB && exprtype == BYTEAOID)
+			{
+				FuncExpr   *fexpr = makeFuncExpr(F_JSONB_FROM_BYTEA_SAFE,
+												 JSONBOID, list_make1(expr),
+												 InvalidOid, InvalidOid,
+												 COERCE_EXPLICIT_CALL);
+				fexpr->location = location;
+
+				return (Node *) fexpr;
+			}
+			else
+			{
+				char		typcategory;
+				bool		typispreferred;
+
+				get_type_category_preferred(exprtype,
+											&typcategory, &typispreferred);
+
+				if (typcategory == TYPCATEGORY_STRING)
+				{
+					Oid			funcid = targettype == JSONOID ?
+										F_JSON_FROM_TEXT_SAFE :
+										F_JSONB_FROM_TEXT_SAFE;
+					Node	   *textexpr = coerce_to_specific_type(pstate, expr,
+															TEXTOID, "json");
+					FuncExpr   *fexpr = makeFuncExpr(funcid,
+													 targettype,
+													 list_make1(textexpr),
+													 InvalidOid, InvalidOid,
+													 COERCE_EXPLICIT_CALL);
+					fexpr->location = location;
+
+					return (Node *) fexpr;
+				}
+			}
+		}
+
 		/* Try to coerce to target type */
 		coerced = coerce_to_target_type(pstate, expr, exprtype,
 										targettype, -1,
@@ -3804,6 +3843,7 @@ transformJsonArrayQueryCtor(ParseState *pstate, JsonArrayQueryCtor *ctor)
 
 	jsexpr->expr = (Expr *) colref;
 	jsexpr->format = ctor->format;
+	jsexpr->null_on_error = false;
 
 	agg->arg = jsexpr;
 	agg->ctor.agg_order = NIL;

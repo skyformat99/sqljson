@@ -2958,3 +2958,34 @@ json_is_valid(PG_FUNCTION_ARGS)
 
 	PG_RETURN_BOOL(true);
 }
+
+/*
+ * json_from_text_safe -- safe text to json conversion
+ */
+Datum
+json_from_text_safe(PG_FUNCTION_ARGS)
+{
+	text	   *json = PG_GETARG_TEXT_P(0);
+	MemoryContext mcxt = CurrentMemoryContext;
+
+	PG_TRY();
+	{
+		JsonLexContext *lex = makeJsonLexContext(json, false);
+
+		pg_parse_json(lex, &nullSemAction);
+	}
+	PG_CATCH();
+	{
+		if (ERRCODE_TO_CATEGORY(geterrcode()) == ERRCODE_DATA_EXCEPTION)
+		{
+			FlushErrorState();
+			MemoryContextSwitchTo(mcxt);
+			PG_RETURN_NULL();
+		}
+
+		PG_RE_THROW();
+	}
+	PG_END_TRY();
+
+	PG_RETURN_TEXT_P(json);
+}

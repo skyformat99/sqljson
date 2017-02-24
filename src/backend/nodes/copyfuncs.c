@@ -2242,6 +2242,7 @@ _copyJsonValueExpr(const JsonValueExpr *from)
 
 	COPY_NODE_FIELD(expr);
 	COPY_SCALAR_FIELD(format);
+	COPY_SCALAR_FIELD(null_on_error);
 
 	return newnode;
 }

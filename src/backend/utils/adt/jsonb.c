@@ -243,6 +243,52 @@ jsonb_from_bytea(PG_FUNCTION_ARGS)
 }
 
 /*
+ * jsonb_from_bytea_safe -- safe bytea to jsonb conversion with validation
+ */
+Datum
+jsonb_from_bytea_safe(PG_FUNCTION_ARGS)
+{
+	bytea	   *ba = PG_GETARG_BYTEA_P(0);
+	Jsonb	   *jb = (Jsonb *) ba;
+
+	if (!JsonbValidate(VARDATA(jb), VARSIZE(jb) - VARHDRSZ))
+		PG_RETURN_NULL();
+
+	PG_RETURN_JSONB(jb);
+}
+
+/*
+ * jsonb_from_text_safe -- safe text to jsonb conversion
+ */
+Datum
+jsonb_from_text_safe(PG_FUNCTION_ARGS)
+{
+	text	   *json = PG_GETARG_TEXT_P(0);
+	Datum		jb;
+	MemoryContext mcxt = CurrentMemoryContext;
+
+	PG_TRY();
+	{
+		jb = jsonb_from_cstring(VARDATA(json), VARSIZE(json) - VARHDRSZ);
+	}
+	PG_CATCH();
+	{
+		if (geterrcode() == ERRCODE_INVALID_TEXT_REPRESENTATION)
+		{
+			FlushErrorState();
+			MemoryContextSwitchTo(mcxt);
+			PG_RETURN_NULL();
+		}
+
+		PG_RE_THROW();
+	}
+	PG_END_TRY();
+
+	PG_RETURN_DATUM(jb);
+}
+
+
+/*
  * jsonb_from_cstring
  *
  * Turns json string into a jsonb Datum.
