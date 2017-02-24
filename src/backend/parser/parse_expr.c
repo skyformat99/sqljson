@@ -3651,7 +3651,8 @@ transformJsonValueExprDefault(ParseState *pstate, JsonValueExpr *jve)
 }
 
 static void
-checkJsonOutputFormat(JsonFormat *format, Oid targettype, bool allow_format)
+checkJsonOutputFormat(ParseState *pstate, JsonFormat *format,
+					  Oid targettype, bool allow_format)
 {
 	if (!allow_format && format->type != JS_FORMAT_DEFAULT &&
 		(targettype != BYTEAOID &&
@@ -3666,7 +3667,7 @@ checkJsonOutputFormat(JsonFormat *format, Oid targettype, bool allow_format)
 		if (typcategory != TYPCATEGORY_STRING)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					 errposition(format->location),
+					 parser_errposition(pstate, format->location),
 					 errmsg("cannot use JSON format with non-string output types")));
 	}
 
@@ -3676,7 +3677,7 @@ checkJsonOutputFormat(JsonFormat *format, Oid targettype, bool allow_format)
 			format->encoding != JS_ENC_DEFAULT)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					 errposition(format->location),
+					 parser_errposition(pstate, format->location),
 					 errmsg("cannot set JSON encoding for non-bytea output types")));
 #if 0
 		JsonEncoding enc = format->encoding != JS_ENC_DEFAULT ?
@@ -3685,7 +3686,7 @@ checkJsonOutputFormat(JsonFormat *format, Oid targettype, bool allow_format)
 		if (enc != JS_ENC_UTF8)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					 errposition(format->location),
+					 parser_errposition(pstate, format->location),
 					 errmsg("unsupported JSON encoding"),
 					 errhint("only UTF8 JSON encoding is supported")));
 #endif
@@ -3720,7 +3721,7 @@ transformJsonOutput(ParseState *pstate, JsonOutput **poutput, bool allow_format)
 		output->returning.format.type = output->returning.typid == JSONBOID
 									? JS_FORMAT_JSONB : JS_FORMAT_JSON;
 	else
-		checkJsonOutputFormat(&output->returning.format,
+		checkJsonOutputFormat(pstate, &output->returning.format,
 							  output->returning.typid,
 							  allow_format);
 }
@@ -4060,13 +4061,13 @@ transformJsonIsPredicate(ParseState *pstate, JsonIsPredicate *pred)
 		if (pred->format.type == JS_FORMAT_JSONB)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					 errposition(pred->format.location),
+					 parser_errposition(pstate, pred->format.location),
 					 errmsg("cannot use FORMAT JSONB for string input types")));
 
 		if (pred->format.encoding != JS_ENC_DEFAULT)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					 errposition(pred->format.location),
+					 parser_errposition(pstate, pred->format.location),
 					 errmsg("cannot use JSON FORMAT ENCODING clause for non-bytea input types")));
 	}
 
@@ -4339,7 +4340,7 @@ transformJsonFuncExpr(ParseState *pstate, JsonFuncExpr *func)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("%s() is not yet implemented for json type", func_name),
-				 errposition(func->location)));
+				 parser_errposition(pstate, func->location)));
 
 	return (Node *) jsexpr;
 }

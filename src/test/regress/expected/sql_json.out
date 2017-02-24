@@ -56,7 +56,7 @@ SELECT JSON_OBJECT(RETURNING text FORMAT JSON);
 SELECT JSON_OBJECT(RETURNING text FORMAT JSON ENCODING UTF8);
 ERROR:  cannot set JSON encoding for non-bytea output types
 LINE 1: SELECT JSON_OBJECT(RETURNING text FORMAT JSON ENCODING UTF8)...
-                                         ^
+                                          ^
 SELECT JSON_OBJECT(RETURNING text FORMAT JSON ENCODING INVALID_ENCODING);
 ERROR:  unrecognized JSON encoding: invalid_encoding
 SELECT JSON_OBJECT(RETURNING text FORMAT JSONB);
@@ -352,7 +352,7 @@ SELECT JSON_ARRAY(RETURNING text FORMAT JSON);
 SELECT JSON_ARRAY(RETURNING text FORMAT JSON ENCODING UTF8);
 ERROR:  cannot set JSON encoding for non-bytea output types
 LINE 1: SELECT JSON_ARRAY(RETURNING text FORMAT JSON ENCODING UTF8);
-                                        ^
+                                         ^
 SELECT JSON_ARRAY(RETURNING text FORMAT JSON ENCODING INVALID_ENCODING);
 ERROR:  unrecognized JSON encoding: invalid_encoding
 SELECT JSON_ARRAY(RETURNING text FORMAT JSONB);
@@ -677,6 +677,8 @@ SELECT NULL::int IS JSON;
 ERROR:  cannot use type integer in IS JSON predicate
 SELECT '' FORMAT JSONB IS JSON;
 ERROR:  cannot use FORMAT JSONB for string input types
+LINE 1: SELECT '' FORMAT JSONB IS JSON;
+                  ^
 SELECT bytea '\x00' IS JSON;
 ERROR:  invalid byte sequence for encoding "UTF8": 0x00
 SELECT bytea '\x00' FORMAT JSON IS JSON;
@@ -854,19 +856,19 @@ FROM
 SELECT JSON_EXISTS(NULL, '$');
 ERROR:  JSON_EXISTS() is not yet implemented for json type
 LINE 1: SELECT JSON_EXISTS(NULL, '$');
-              ^
+               ^
 SELECT JSON_EXISTS(NULL::text, '$');
 ERROR:  JSON_EXISTS() is not yet implemented for json type
 LINE 1: SELECT JSON_EXISTS(NULL::text, '$');
-              ^
+               ^
 SELECT JSON_EXISTS(NULL::bytea, '$');
 ERROR:  JSON_EXISTS() is not yet implemented for json type
 LINE 1: SELECT JSON_EXISTS(NULL::bytea, '$');
-              ^
+               ^
 SELECT JSON_EXISTS(NULL::json, '$');
 ERROR:  JSON_EXISTS() is not yet implemented for json type
 LINE 1: SELECT JSON_EXISTS(NULL::json, '$');
-              ^
+               ^
 SELECT JSON_EXISTS(NULL::jsonb, '$');
  ?column? 
 ----------
@@ -876,7 +878,7 @@ SELECT JSON_EXISTS(NULL::jsonb, '$');
 SELECT JSON_EXISTS(NULL FORMAT JSON, '$');
 ERROR:  JSON_EXISTS() is not yet implemented for json type
 LINE 1: SELECT JSON_EXISTS(NULL FORMAT JSON, '$');
-              ^
+               ^
 SELECT JSON_EXISTS(NULL FORMAT JSONB, '$');
  ?column? 
 ----------
@@ -1007,19 +1009,19 @@ SELECT JSON_EXISTS(jsonb '{"a": 1, "b": 2}', '$.a.b');
 SELECT JSON_VALUE(NULL, '$');
 ERROR:  JSON_VALUE() is not yet implemented for json type
 LINE 1: SELECT JSON_VALUE(NULL, '$');
-              ^
+               ^
 SELECT JSON_VALUE(NULL::text, '$');
 ERROR:  JSON_VALUE() is not yet implemented for json type
 LINE 1: SELECT JSON_VALUE(NULL::text, '$');
-              ^
+               ^
 SELECT JSON_VALUE(NULL::bytea, '$');
 ERROR:  JSON_VALUE() is not yet implemented for json type
 LINE 1: SELECT JSON_VALUE(NULL::bytea, '$');
-              ^
+               ^
 SELECT JSON_VALUE(NULL::json, '$');
 ERROR:  JSON_VALUE() is not yet implemented for json type
 LINE 1: SELECT JSON_VALUE(NULL::json, '$');
-              ^
+               ^
 SELECT JSON_VALUE(NULL::jsonb, '$');
  ?column? 
 ----------
@@ -1029,7 +1031,7 @@ SELECT JSON_VALUE(NULL::jsonb, '$');
 SELECT JSON_VALUE(NULL FORMAT JSON, '$');
 ERROR:  JSON_VALUE() is not yet implemented for json type
 LINE 1: SELECT JSON_VALUE(NULL FORMAT JSON, '$');
-              ^
+               ^
 SELECT JSON_VALUE(NULL FORMAT JSONB, '$');
  ?column? 
 ----------

@@ -13086,6 +13086,7 @@ a_expr:		c_expr									{ $$ = $1; }
 					json_predicate_type_constraint_opt
 					json_key_uniqueness_constraint_opt		%prec FORMAT
 				{
+					$3.location = @2;
 					$$ = makeJsonPredicate($1, $3, $6, $7);
 				}
 			| a_expr
@@ -13102,6 +13103,7 @@ a_expr:		c_expr									{ $$ = $1; }
 					json_predicate_type_constraint_opt
 					json_key_uniqueness_constraint_opt		%prec FORMAT
 				{
+					$3.location = @2;
 					$$ = makeNotExpr(makeJsonPredicate($1, $3, $7, $8), @1);
 				}
 			| DEFAULT
