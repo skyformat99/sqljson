@@ -940,6 +940,8 @@ exprCollation(const Node *expr)
 
 				if (jexpr->result_expr)
 					coll = exprCollation(jexpr->result_expr);
+				else if (jexpr->coerce_via_io)
+					coll = jexpr->coerce_via_io_collation;
 				else
 					coll = InvalidOid; /* FIXME */
 			}
@@ -1149,6 +1151,8 @@ exprSetCollation(Node *expr, Oid collation)
 
 				if (jexpr->result_expr)
 					exprSetCollation(jexpr->result_expr, collation);
+				else if (jexpr->coerce_via_io)
+					jexpr->coerce_via_io_collation = collation;
 				else
 					Assert(!OidIsValid(collation)); /* FIXME */
 			}

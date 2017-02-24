@@ -1128,13 +1128,13 @@ SELECT JSON_VALUE(jsonb '"aaa"', '$');
 SELECT JSON_VALUE(jsonb '"aaa"', '$' RETURNING text);
  ?column? 
 ----------
- "aaa"
+ aaa
 (1 row)
 
 SELECT JSON_VALUE(jsonb '"aaa"', '$' RETURNING char(5));
  ?column? 
 ----------
- "aaa"
+ aaa  
 (1 row)
 
 SELECT JSON_VALUE(jsonb '"aaa"', '$' RETURNING char(2));
@@ -1144,6 +1144,32 @@ SELECT JSON_VALUE(jsonb '"aaa"', '$' RETURNING char(2));
 (1 row)
 
 SELECT JSON_VALUE(jsonb '"aaa"', '$' RETURNING json);
+ ?column? 
+----------
+ 
+(1 row)
+
+SELECT JSON_VALUE(jsonb '"aaa"', '$' RETURNING jsonb);
+ ?column? 
+----------
+ 
+(1 row)
+
+SELECT JSON_VALUE(jsonb '"aaa"', '$' RETURNING json ERROR ON ERROR);
+ERROR:  invalid input syntax for type json
+DETAIL:  Token "aaa" is invalid.
+CONTEXT:  JSON data, line 1: aaa
+SELECT JSON_VALUE(jsonb '"aaa"', '$' RETURNING jsonb ERROR ON ERROR);
+ERROR:  invalid input syntax for type json
+DETAIL:  Token "aaa" is invalid.
+CONTEXT:  JSON data, line 1: aaa
+SELECT JSON_VALUE(jsonb '"\"aaa\""', '$' RETURNING json);
+ ?column? 
+----------
+ "aaa"
+(1 row)
+
+SELECT JSON_VALUE(jsonb '"\"aaa\""', '$' RETURNING jsonb);
  ?column? 
 ----------
  "aaa"

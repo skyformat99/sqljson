@@ -1229,6 +1229,7 @@ typedef struct JsonExpr
 	Node	   *formatted_expr;	/* formatted context item expression */
 	Node	   *result_expr;	/* resulting expression (coerced to RETURNING type) */
 	bool		coerce_via_io;	/* coerce result using type input function */
+	Oid			coerce_via_io_collation; /* collation for conversion through I/O */
 	JsonFormat	format;			/* context item format (JSON/JSONB) */
 	Const	   *path_spec;		/* JSON path specification */
 	JsonPassing	passing;		/* PASSING clause arguments */

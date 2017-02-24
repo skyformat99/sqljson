@@ -4211,6 +4211,14 @@ transformJsonFuncExprOutput(ParseState *pstate,	JsonFuncExpr *func,
 	{
 		JsonReturning ret;
 
+		if (func->op == IS_JSON_VALUE)
+		{
+			 /* XXX forced coercion via I/O for JSON_VALUE */
+			jsexpr->result_expr = NULL;
+			jsexpr->coerce_via_io = true;
+			return;
+		}
+
 		assignDefaultJsonReturningType(jsexpr->raw_expr, &jsexpr->format, &ret);
 
 		if (ret.typid != jsexpr->returning.typid ||

@@ -1316,6 +1316,7 @@ _readJsonExpr(void)
 	READ_NODE_FIELD(formatted_expr);
 	READ_NODE_FIELD(result_expr);
 	READ_BOOL_FIELD(coerce_via_io);
+	READ_OID_FIELD(coerce_via_io_collation);
 	READ_ENUM_FIELD(format.type, JsonFormatType);
 	READ_ENUM_FIELD(format.encoding, JsonEncoding);
 	READ_LOCATION_FIELD(format.location);
