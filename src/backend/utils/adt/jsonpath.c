@@ -765,19 +765,9 @@ recursiveExecute(JsonPathItem *jsp, List *vars, JsonbValue *jb,
 			jspGetNext(jsp, &elem);
 			if (JsonbType(jb) == jbvScalar)
 			{
-				JsonbIterator	*it;
-				int32			r;
-				JsonbValue		v;
+				JsonbValue	v;
 
-				it = JsonbIteratorInit(jb->val.binary.data);
-
-				r = JsonbIteratorNext(&it, &v, true);
-				Assert(r == WJB_BEGIN_ARRAY);
-				Assert(v.val.array.rawScalar == 1);
-				Assert(v.val.array.nElems == 1);
-
-				r = JsonbIteratorNext(&it, &v, true);
-				Assert(r == WJB_ELEM);
+				JsonbExtractScalar(jb->val.binary.data, &v);
 
 				res = recursiveExecute(&elem, vars, &v, jspLeftArg, NULL);
 			}
