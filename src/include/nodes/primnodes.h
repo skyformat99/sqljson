@@ -1172,6 +1172,7 @@ typedef enum JsonFormatType
 	JS_FORMAT_DEFAULT,
 	JS_FORMAT_JSON,
 	JS_FORMAT_JSONB,
+	JS_FORMAT_JSONB_ARG,	/* special format for passing json path args */
 } JsonFormatType;
 
 typedef enum

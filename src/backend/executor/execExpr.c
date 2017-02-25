@@ -43,6 +43,7 @@
 #include "optimizer/planner.h"
 #include "pgstat.h"
 #include "utils/builtins.h"
+#include "utils/jsonpath.h"
 #include "utils/lsyscache.h"
 #include "utils/typcache.h"
 
@@ -2050,24 +2051,33 @@ ExecInitExprRec(Expr *node, PlanState *parent, ExprState *state,
 
 				nargs = list_length(jexpr->passing.values);
 
+				scratch.d.jsonexpr.args = NIL;
+
 				if (nargs > 0)
 				{
-					ListCell   *arg;
-					int			off = 0;
+					ListCell   *argexprlc;
+					ListCell   *argnamelc;
 
-					scratch.d.jsonexpr.args.values =
-							(Datum *) palloc(sizeof(Datum) * nargs);
-					scratch.d.jsonexpr.args.nulls =
-							(bool *) palloc(sizeof(bool) * nargs);
-
-					foreach(arg, jexpr->passing.values)
+					forboth(argexprlc, jexpr->passing.values,
+							argnamelc, jexpr->passing.names)
 					{
-						Expr	   *e = (Expr *) lfirst(arg);
+						Expr	   *argexpr = (Expr *) lfirst(argexprlc);
+						Value	   *argname = (Value *) lfirst(argnamelc);
+						JsonPathVariableEvalContext *var = palloc(sizeof(*var));
 
-						ExecInitExprRec(e, parent, state,
-										&scratch.d.jsonexpr.args.values[off],
-										&scratch.d.jsonexpr.args.nulls[off]);
-						off++;
+						var->var.varName = cstring_to_text(argname->val.str);
+						var->var.typid = exprType((Node *) argexpr);
+						var->var.typmod = exprTypmod((Node *) argexpr);
+						var->var.cb = EvalJsonPathVar;
+						var->var.cb_arg = var;
+						var->estate = ExecInitExpr(argexpr, parent);
+						var->econtext = NULL;
+						var->evaluated = false;
+						var->value = (Datum) 0;
+						var->isnull = true;
+
+						scratch.d.jsonexpr.args =
+										lappend(scratch.d.jsonexpr.args, var);
 					}
 				}
 

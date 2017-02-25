@@ -358,6 +358,11 @@ SELECT JSON_EXISTS(jsonb '1', '$.a.b');
 SELECT JSON_EXISTS(jsonb '{"a": {"b": 1}}', '$.a.b');
 SELECT JSON_EXISTS(jsonb '{"a": 1, "b": 2}', '$.a.b');
 
+SELECT JSON_EXISTS(jsonb '{"a": 1, "b": 2}', '$.* ? (@ > $x)' PASSING 1 AS x);
+SELECT JSON_EXISTS(jsonb '{"a": 1, "b": 2}', '$.* ? (@ > $x)' PASSING '1' AS x);
+SELECT JSON_EXISTS(jsonb '{"a": 1, "b": 2}', '$.* ? (@ > $x && @ < $y)' PASSING 0 AS x, 2 AS y);
+SELECT JSON_EXISTS(jsonb '{"a": 1, "b": 2}', '$.* ? (@ > $x && @ < $y)' PASSING 0 AS x, 1 AS y);
+
 -- JSON_VALUE
 
 SELECT JSON_VALUE(NULL, '$');
@@ -430,6 +435,18 @@ SELECT JSON_VALUE(jsonb '[1,2]', '$[*]' DEFAULT '0' ON ERROR);
 SELECT JSON_VALUE(jsonb '[" "]', '$[*]' RETURNING int ERROR ON ERROR);
 SELECT JSON_VALUE(jsonb '[" "]', '$[*]' RETURNING int DEFAULT 2 + 3 ON ERROR);
 SELECT JSON_VALUE(jsonb '["1"]', '$[*]' RETURNING int DEFAULT 2 + 3 ON ERROR);
+
+SELECT
+	x,
+	JSON_VALUE(
+		jsonb '{"a": 1, "b": 2}',
+		'$.* ? (@ > $x)' PASSING x AS x
+		RETURNING int
+		DEFAULT -1 ON EMPTY
+		DEFAULT -2 ON ERROR
+	) y
+FROM
+	generate_series(0, 2) x;
 
 -- JSON_QUERY
 
@@ -520,6 +537,19 @@ SELECT JSON_QUERY(jsonb '[1,2]', '$[*]' RETURNING bytea FORMAT JSON EMPTY OBJECT
 SELECT JSON_QUERY(jsonb '[1,2]', '$[*]' RETURNING bytea FORMAT JSONB EMPTY OBJECT ON ERROR);
 SELECT JSON_QUERY(jsonb '[1,2]', '$[*]' RETURNING json EMPTY OBJECT ON ERROR);
 SELECT JSON_QUERY(jsonb '[1,2]', '$[*]' RETURNING jsonb EMPTY OBJECT ON ERROR);
+
+SELECT
+	x, y,
+	JSON_QUERY(
+		jsonb '[1,2,3,4,5,null]',
+		'$[*] ? (@ >= $x && @ <= $y)'
+		PASSING x AS x, y AS y
+		WITH CONDITIONAL WRAPPER
+		EMPTY ARRAY ON EMPTY
+	) list
+FROM
+	generate_series(0, 4) x,
+	generate_series(0, 4) y;
 
 -- Test constraints
 
@@ -1058,6 +1088,33 @@ from
 		)
 		--plan default(outer, cross)
 		plan(p outer ((pb inner pb1) cross (pc outer pc1)))
+	) jt;
+
+-- Should succeed (JSON arguments are passed to root and nested paths)
+SELECT *
+FROM
+	generate_series(1, 4) x,
+	generate_series(1, 3) y,
+	JSON_TABLE(
+		'[[1,2,3],[2,3,4,5],[3,4,5,6]]',
+		'$[*] ? (@.[*] < $x)'
+		PASSING x AS x, y AS y
+		COLUMNS (
+			y text FORMAT JSON PATH '$',
+			NESTED PATH '$[*] ? (@ >= $y)'
+			COLUMNS (
+				z int PATH '$'
+			)
+		)
+	) jt;
+
+-- Should fail (JSON arguments are not passed to column paths)
+SELECT *
+FROM JSON_TABLE(
+	'[1,2,3]',
+	'$[*] ? (@ < $x)'
+		PASSING 10 AS x
+		COLUMNS (y text FORMAT JSON PATH '$ ? (@ < $x)')
 	) jt;
 
 --jsonpath io

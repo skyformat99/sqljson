@@ -3666,6 +3666,21 @@ ExecEvalJsonExprCoercion(ExprEvalStep *op, ExprContext *econtext,
 	return res;
 }
 
+Datum
+EvalJsonPathVar(void *cxt, bool *isnull)
+{
+	JsonPathVariableEvalContext *ecxt = cxt;
+
+	if (!ecxt->evaluated)
+	{
+		ecxt->value = ExecEvalExpr(ecxt->estate, ecxt->econtext, &ecxt->isnull);
+		ecxt->evaluated = true;
+	}
+
+	*isnull = ecxt->isnull;
+	return ecxt->value;
+}
+
 /* ----------------------------------------------------------------
  *		ExecEvalJson
  * ----------------------------------------------------------------
@@ -3677,6 +3692,7 @@ ExecEvalJson(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 	Datum		item;
 	Datum		res = (Datum) 0;
 	JsonPath   *path;
+	ListCell   *lc;
 	Oid			formattedType = exprType(jexpr->formatted_expr ?
 										 jexpr->formatted_expr :
 										 jexpr->raw_expr);
@@ -3696,6 +3712,14 @@ ExecEvalJson(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 	item = op->d.jsonexpr.raw_expr->value;
 
 	path = DatumGetJsonPath(jexpr->path_spec->constvalue);
+
+	foreach(lc, op->d.jsonexpr.args)
+	{
+		JsonPathVariableEvalContext *var = lfirst(lc);
+
+		var->econtext = econtext;
+		var->evaluated = false;
+	}
 
 	PG_TRY();
 	{
@@ -3720,7 +3744,8 @@ ExecEvalJson(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 		switch (jexpr->op)
 		{
 			case IS_JSON_QUERY:
-				jb = JsonbPathQuery(jb, path, jexpr->wrapper, &empty, NULL);
+				jb = JsonbPathQuery(jb, path, jexpr->wrapper, &empty,
+									op->d.jsonexpr.args);
 				if (jb)
 				{
 					res = JsonbGetDatum(jb);
@@ -3729,7 +3754,7 @@ ExecEvalJson(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 				break;
 
 			case IS_JSON_VALUE:
-				jb = JsonbPathValue(jb, path, &empty, NULL);
+				jb = JsonbPathValue(jb, path, &empty, op->d.jsonexpr.args);
 
 				if (jb)
 				{
@@ -3739,7 +3764,8 @@ ExecEvalJson(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 				break;
 
 			case IS_JSON_EXISTS:
-				res = BoolGetDatum(JsonbPathExists(jb, path, NULL));
+				res = BoolGetDatum(JsonbPathExists(jb, path,
+												   op->d.jsonexpr.args));
 				*op->resnull = false;
 				break;
 
