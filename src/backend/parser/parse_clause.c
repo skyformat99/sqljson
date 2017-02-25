@@ -54,6 +54,8 @@ typedef struct JsonTableContext
 	List	   *pathnames;
 	int			pathNameId;
 	int			contextItemId;
+	ColumnRef  *passingArgsRef;
+	RangeVar   *passingArgsRte;
 } JsonTableContext;
 
 /* Convenience macro for the most common makeNamespaceItem() case */
@@ -1459,7 +1461,9 @@ appendJsonTableColumns(ParseState *pstate, JsonTableContext *cxt,
 				{
 					Node	   *expr =
 							transformJsonTableColumn(jtc, contextItem,
-													 jt->common->passing,
+								/* arguments are not passed to column paths */
+													 NIL,
+													 /* jt->common->passing, */
 													 errorOnError);
 
 					appendJsonTableColumn(&targetList, jtc->name, jtc->location,
@@ -1558,18 +1562,22 @@ makeParentJsonTableNode(ParseState *pstate, JsonTableContext *cxt,
 	A_Const	   *path = makeNode(A_Const);
 	Alias	   *alias = makeNode(Alias);
 	FuncCall   *fcall;
+	List	   *args;
 
 	/* Make JSON path argument */
 	path->val.type = T_String;
 	path->val.val.str = pathSpec;
 	path->location = -1;
 
-	/* FIXME passing */
+	args = list_make2(path, expr);
+
+	if (cxt->passingArgsRef)
+		args = lappend(args, cxt->passingArgsRef);
+
 	/* Make jsonb_unnest_path() call */
 	fcall = makeFuncCall(list_make2(makeString(pstrdup("pg_catalog")),
 									makeString(pstrdup("_jsonpath_object"))),
-						 list_make2(path, expr),
-						 -1);
+						 args, -1);
 
 	/* Make alias for RangeFunction */
 	alias->aliasname = generateJsonTableAlias(cxt);
@@ -1592,6 +1600,9 @@ makeParentJsonTableNode(ParseState *pstate, JsonTableContext *cxt,
 												(Node *) colref,
 												rangefunc, alias,
 												contextItemColumnName);
+
+	if (cxt->passingArgsRte)
+		select->fromClause = lcons(cxt->passingArgsRte, select->fromClause);
 
 	subselect->subquery = (Node *) select;
 	subselect->lateral = true;
@@ -1715,16 +1726,59 @@ transformJsonTable(ParseState *pstate, JsonTable *jt)
 	JsonTableContext cxt;
 	JsonTablePlan *plan = jt->plan;
 	char	   *rootPathName = jt->common->pathname;
+	char	   *passingArgsAlias = NULL;
+	JsonObjectCtor *argctor;
 
 	cxt.table = jt;
 	cxt.pathnames = NIL;
 	cxt.pathNameId = 0;
 	cxt.contextItemId = 0;
+	cxt.passingArgsRef = NULL;
+	cxt.passingArgsRte = NULL;
 
 	if (rootPathName)
 		registerJsonTableColumn(&cxt, rootPathName);
 
 	registerAllJsonTableColumns(&cxt, jt->columns);
+
+	if (jt->common->passing)
+	{
+		ListCell   *lc;
+		int			tmpid = 0;
+
+		passingArgsAlias =
+				generateJsonTablePathName(&cxt, "json_table_path_args", &tmpid);
+
+		cxt.passingArgsRte = makeRangeVar(NULL, passingArgsAlias, -1);
+
+		cxt.passingArgsRef = makeNode(ColumnRef);
+		cxt.passingArgsRef->fields = list_make2(makeString(passingArgsAlias),
+												makeString("args"));
+		cxt.passingArgsRef->location = -1;
+
+		argctor = makeNode(JsonObjectCtor);
+		argctor->output = makeNode(JsonOutput);
+		argctor->output->typename = makeTypeNameFromOid(JSONBOID, -1);
+		argctor->output->returning.format.type = JS_FORMAT_DEFAULT;
+		argctor->output->returning.format.encoding = JS_ENC_DEFAULT;
+		argctor->unique = true;
+
+		foreach(lc, jt->common->passing)
+		{
+			JsonArgument *arg = castNode(JsonArgument, lfirst(lc));
+			JsonKeyValue *kv = makeNode(JsonKeyValue);
+			A_Const	   *key = makeNode(A_Const);
+
+			key->val.val.str = pstrdup(arg->name);
+			key->val.type = T_String;
+			key->location = -1;
+
+			kv->key = (Expr *) key;
+			kv->value = arg->val;
+
+			argctor->exprs = lappend(argctor->exprs, kv);
+		}
+	}
 
 	if (plan && plan->plan_type != JSTP_DEFAULT && !rootPathName)
 	{
@@ -1767,6 +1821,25 @@ transformJsonTable(ParseState *pstate, JsonTable *jt)
 										  jt->common->location);
 
 	subselect->alias = jt->alias;
+
+	if (passingArgsAlias)
+	{
+		SelectStmt *select = castNode(SelectStmt, subselect->subquery);
+		CommonTableExpr *cte = makeNode(CommonTableExpr);
+		SelectStmt *argsel = makeNode(SelectStmt);
+		ResTarget  *target = makeNode(ResTarget);
+
+		select->withClause = makeNode(WithClause);
+		select->withClause->ctes = list_make1(cte);
+
+		cte->ctename = pstrdup(passingArgsAlias);
+		cte->ctequery = (Node *) argsel;
+
+		argsel->targetList = list_make1(target);
+
+		target->name = pstrdup("args");
+		target->val = (Node *) argctor;
+	}
 
 	return subselect;
 }

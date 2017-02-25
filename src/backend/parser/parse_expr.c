@@ -3544,7 +3544,7 @@ transformJsonValueExprExt(ParseState *pstate, JsonValueExpr *ve,
 	Oid			exprtype;
 
 	if (exprType(expr) == UNKNOWNOID)
-		expr = coerce_to_specific_type(pstate, expr, TEXTOID, "json");
+		expr = coerce_to_specific_type(pstate, expr, TEXTOID, "JSON_VALUE_EXPR");
 
 	if (rawexpr)
 	{
@@ -3556,6 +3556,33 @@ transformJsonValueExprExt(ParseState *pstate, JsonValueExpr *ve,
 
 	if (ve->format.type != JS_FORMAT_DEFAULT)
 		format = ve->format.type;
+	else if (format == JS_FORMAT_JSONB_ARG)
+	{
+		FuncExpr   *fexpr;
+		char		typcategory;
+		bool		typispreferred;
+
+		switch (exprtype)
+		{
+			case TEXTOID:
+			case NUMERICOID:
+			case BOOLOID:
+				return expr;
+		}
+
+		get_type_category_preferred(exprtype,
+									&typcategory, &typispreferred);
+
+		if (typcategory == TYPCATEGORY_STRING)
+			return coerce_to_specific_type(pstate, expr, TEXTOID,
+											"JSON_VALUE_EXPR");
+
+		fexpr = makeFuncExpr(F_TO_JSONB, JSONBOID, list_make1(expr),
+							 InvalidOid, InvalidOid, COERCE_EXPLICIT_CALL);
+		fexpr->location = exprLocation(expr);
+
+		return (Node *) fexpr;
+	}
 	else if (exprtype == JSONOID || exprtype == JSONBOID)
 		format = JS_FORMAT_DEFAULT;
 
@@ -3649,6 +3676,7 @@ transformJsonValueExprDefault(ParseState *pstate, JsonValueExpr *jve)
 {
 	return transformJsonValueExprExt(pstate, jve, JS_FORMAT_DEFAULT, NULL);
 }
+
 
 static void
 checkJsonOutputFormat(ParseState *pstate, JsonFormat *format,
@@ -4056,6 +4084,7 @@ JsonValueTypeStrings[] =
 	"scalar",
 };
 
+
 static Const *
 makeJsonValueTypeConst(JsonValueType type)
 {
@@ -4154,7 +4183,9 @@ transformJsonPassingArgs(ParseState *pstate, List *args, JsonPassing *passing)
 	foreach(lc, args)
 	{
 		JsonArgument *arg = castNode(JsonArgument, lfirst(lc));
-		Node	   *expr = transformJsonValueExprDefault(pstate, arg->val);
+		Node	   *expr =
+				transformJsonValueExprExt(pstate, arg->val,
+										  JS_FORMAT_JSONB_ARG, NULL);
 
 		passing->values = lappend(passing->values, expr);
 		passing->names = lappend(passing->names, makeString(arg->name));

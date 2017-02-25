@@ -583,13 +583,7 @@ typedef struct ExprEvalStep
 			ExprState  *result_expr;
 			ExprState  *default_on_empty;
 			ExprState  *default_on_error;
-
-			/* workspace for evaluating passing args, if any */
-			struct
-			{
-				Datum	   *values;
-				bool	   *nulls;
-			}			args;
+			List	   *args;
 		}			jsonexpr;
 
 	}			d;
@@ -630,7 +624,6 @@ typedef struct ArrayRefState
 	Datum		prevvalue;
 	bool		prevnull;
 } ArrayRefState;
-
 
 extern void ExecReadyInterpretedExpr(ExprState *state);
 

@@ -156,7 +156,15 @@ typedef struct JsonPathVariable	{
 	void					*cb_arg;
 } JsonPathVariable;
 
-
+typedef struct JsonPathVariableEvalContext
+{
+	JsonPathVariable var;
+	struct ExprContext *econtext;
+	struct ExprState  *estate;
+	Datum		value;
+	bool		isnull;
+	bool		evaluated;
+} JsonPathVariableEvalContext;
 
 JsonPathExecResult	executeJsonPath(JsonPath *path,
 									List	*vars, /* list of JsonPathVariable */
@@ -167,5 +175,7 @@ extern bool   JsonbPathExists(Jsonb *, JsonPath *path, List *vars);
 extern Jsonb *JsonbPathValue(Jsonb *jb, JsonPath *jp, bool *empty, List *vars);
 extern Jsonb *JsonbPathQuery(Jsonb *jb, JsonPath *jp, JsonWrapper wrapper,
 							 bool *empty, List *vars);
+
+extern Datum EvalJsonPathVar(void *cxt, bool *isnull);
 
 #endif
