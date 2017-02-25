@@ -1111,3 +1111,128 @@ _jsonpath_object3(PG_FUNCTION_ARGS)
 	return __jsonpath_object(fcinfo);
 }
 
+bool
+JsonbPathExists(Jsonb *jb, JsonPath *jp, List *vars)
+{
+	JsonPathExecResult res = executeJsonPath(jp, vars, jb, NULL);
+
+	if (res == jperError)
+		ereport(ERROR,
+				(errcode(ERRCODE_NO_JSON_ITEM), /* FIXME */
+				 errmsg("JSON path error")));
+
+	return res == jperOk;
+}
+
+Jsonb *
+JsonbPathQuery(Jsonb *jb, JsonPath *jp, JsonWrapper wrapper,
+			   bool *empty, List *vars)
+{
+	JsonbValue *first;
+	Jsonb	   *res = NULL;
+	bool		wrap;
+	List	   *found = NIL;
+	JsonPathExecResult jper = executeJsonPath(jp, vars, jb, &found);
+
+	if (jper == jperError)
+		ereport(ERROR,
+				(errcode(ERRCODE_NO_JSON_ITEM), /* FIXME */
+				 errmsg("JSON path error")));
+
+	first = found ? linitial(found) : NULL;
+
+	if (!first)
+		wrap = false;
+	else if (wrapper == JSW_NONE)
+		wrap = false;
+	else if (wrapper == JSW_UNCONDITIONAL)
+		wrap = true;
+	else if (wrapper == JSW_CONDITIONAL)
+		wrap = list_length(found) > 1 ||
+			   IsAJsonbScalar(first) ||
+			   (first->type == jbvBinary &&
+				JsonContainerIsScalar(first->val.binary.data));
+	else
+	{
+		elog(ERROR, "unrecognized json wrapper %d", wrapper);
+		wrap = false;
+	}
+
+	if (wrap)
+	{
+		JsonbParseState *ps = NULL;
+		JsonbValue *arr;
+		ListCell   *lc;
+
+		pushJsonbValue(&ps, WJB_BEGIN_ARRAY, NULL);
+
+		foreach(lc, found)
+		{
+			JsonbValue *jbv = (JsonbValue *) lfirst(lc);
+
+			if (jbv->type == jbvBinary &&
+			    JsonContainerIsScalar(jbv->val.binary.data))
+				JsonbExtractScalar(jbv->val.binary.data, jbv);
+
+			pushJsonbValue(&ps, WJB_ELEM, jbv);
+		}
+
+		arr = pushJsonbValue(&ps, WJB_END_ARRAY, NULL);
+		res = JsonbValueToJsonb(arr);
+	}
+	else
+	{
+		if (list_length(found) > 1)
+			ereport(ERROR,
+					(errcode(ERRCODE_MORE_THAN_ONE_JSON_ITEM),
+					 errmsg("more than one SQL/JSON item")));
+		else if (first)
+			res = JsonbValueToJsonb(first);
+		else
+		{
+			*empty = true;
+			res = NULL;
+		}
+	}
+
+	return res;
+}
+
+Jsonb *
+JsonbPathValue(Jsonb *jb, JsonPath *jp, bool *empty, List *vars)
+{
+	JsonbValue *res;
+	List	   *found = NIL;
+	JsonPathExecResult jper = executeJsonPath(jp, vars, jb, &found);
+
+	if (jper == jperError)
+		ereport(ERROR,
+				(errcode(ERRCODE_NO_JSON_ITEM), /* FIXME */
+				 errmsg("JSON path error")));
+
+	*empty = !found;
+
+	if (*empty)
+		return NULL;
+
+	if (list_length(found) > 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_MORE_THAN_ONE_JSON_ITEM),
+				 errmsg("more than one SQL/JSON item")));
+
+	res = linitial(found);
+
+	if (res->type == jbvBinary &&
+		JsonContainerIsScalar(res->val.binary.data))
+		JsonbExtractScalar(res->val.binary.data, res);
+
+	if (!IsAJsonbScalar(res))
+		ereport(ERROR,
+				(errcode(ERRCODE_JSON_SCALAR_REQUIRED),
+				 errmsg("SQL/JSON scalar required")));
+
+	if (res->type == jbvNull)
+		return NULL;
+
+	return JsonbValueToJsonb(res);
+}
