@@ -1604,32 +1604,32 @@ CREATE TABLE test_json_constraints (
 );
 \d test_json_constraints
                                                          Table "public.test_json_constraints"
- Column |  Type   | Collation | Nullable |                                                  Default                                                   
---------+---------+-----------+----------+------------------------------------------------------------------------------------------------------------
+ Column |  Type   | Collation | Nullable |                                                   Default                                                   
+--------+---------+-----------+----------+-------------------------------------------------------------------------------------------------------------
  js     | text    |           |          | 
  i      | integer |           |          | 
- x      | jsonb   |           |          | JSON_QUERY('[1, 2]'::jsonb, '$[*]' RETURNING jsonb WITH UNCONDITIONAL WRAPPER NULL ON EMPTY NULL ON ERROR)
+ x      | jsonb   |           |          | JSON_QUERY('[1, 2]'::jsonb, '$.[*]' RETURNING jsonb WITH UNCONDITIONAL WRAPPER NULL ON EMPTY NULL ON ERROR)
 Check constraints:
     "test_json_constraint1" CHECK (pg_catalog.json_is_valid(js, 'any'::text, false))
-    "test_json_constraint2" CHECK (JSON_EXISTS(js FORMAT JSONB, '$.a' PASSING i + 5 AS int, i::text AS txt FALSE ON ERROR))
-    "test_json_constraint3" CHECK ((JSON_VALUE(js::jsonb, '$.a' RETURNING integer DEFAULT ('12'::text || i)::integer ON EMPTY ERROR ON ERROR)) > i)
-    "test_json_constraint4" CHECK ((JSON_QUERY(js FORMAT JSONB, '$.a' RETURNING jsonb WITH CONDITIONAL WRAPPER NULL ON EMPTY EMPTY OBJECT ON ERROR)) < '[10]'::jsonb)
+    "test_json_constraint2" CHECK (JSON_EXISTS(js FORMAT JSONB, '$."a"' PASSING i + 5 AS int, i::text AS txt FALSE ON ERROR))
+    "test_json_constraint3" CHECK ((JSON_VALUE(js::jsonb, '$."a"' RETURNING integer DEFAULT ('12'::text || i)::integer ON EMPTY ERROR ON ERROR)) > i)
+    "test_json_constraint4" CHECK ((JSON_QUERY(js FORMAT JSONB, '$."a"' RETURNING jsonb WITH CONDITIONAL WRAPPER NULL ON EMPTY EMPTY OBJECT ON ERROR)) < '[10]'::jsonb)
 
 SELECT check_clause
 FROM information_schema.check_constraints
 WHERE constraint_name LIKE 'test_json_constraint%';
-                                                            check_clause                                                             
--------------------------------------------------------------------------------------------------------------------------------------
+                                                             check_clause                                                              
+---------------------------------------------------------------------------------------------------------------------------------------
  (pg_catalog.json_is_valid(js, 'any'::text, false))
- (JSON_EXISTS(js FORMAT JSONB, '$.a' PASSING (i + 5) AS int, (i)::text AS txt FALSE ON ERROR))
- ((JSON_VALUE((js)::jsonb, '$.a' RETURNING integer DEFAULT (('12'::text || i))::integer ON EMPTY ERROR ON ERROR) > i))
- ((JSON_QUERY(js FORMAT JSONB, '$.a' RETURNING jsonb WITH CONDITIONAL WRAPPER NULL ON EMPTY EMPTY OBJECT ON ERROR) < '[10]'::jsonb))
+ (JSON_EXISTS(js FORMAT JSONB, '$."a"' PASSING (i + 5) AS int, (i)::text AS txt FALSE ON ERROR))
+ ((JSON_VALUE((js)::jsonb, '$."a"' RETURNING integer DEFAULT (('12'::text || i))::integer ON EMPTY ERROR ON ERROR) > i))
+ ((JSON_QUERY(js FORMAT JSONB, '$."a"' RETURNING jsonb WITH CONDITIONAL WRAPPER NULL ON EMPTY EMPTY OBJECT ON ERROR) < '[10]'::jsonb))
 (4 rows)
 
 SELECT adsrc FROM pg_attrdef WHERE adrelid = 'test_json_constraints'::regclass;
-                                                   adsrc                                                    
-------------------------------------------------------------------------------------------------------------
- JSON_QUERY('[1, 2]'::jsonb, '$[*]' RETURNING jsonb WITH UNCONDITIONAL WRAPPER NULL ON EMPTY NULL ON ERROR)
+                                                    adsrc                                                    
+-------------------------------------------------------------------------------------------------------------
+ JSON_QUERY('[1, 2]'::jsonb, '$.[*]' RETURNING jsonb WITH UNCONDITIONAL WRAPPER NULL ON EMPTY NULL ON ERROR)
 (1 row)
 
 INSERT INTO test_json_constraints VALUES ('', 1);

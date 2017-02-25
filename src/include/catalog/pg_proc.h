@@ -5057,8 +5057,6 @@ DATA(insert OID = 3306 (  jsonb_pretty	   PGNSP PGUID 12 1 0 0 0 f f f f t f i s
 DESCR("Indented text from jsonb");
 DATA(insert OID = 3579 (  jsonb_insert	  PGNSP PGUID 12 1 0 0 0 f f f f t f i s 4 0 3802 "3802 1009 3802 16" _null_ _null_ _null_ _null_ _null_ jsonb_insert _null_ _null_ _null_ ));
 DESCR("Insert value into a jsonb");
-DATA(insert OID = 3999 (  jsonb_unnest_path		PGNSP PGUID 12 1 100 0 0 f f f f t t i s 2 0 3802 "3802 25" "{3802,25,3802}" "{i,i,o}" "{from_jsonb,json_path,out_jsonb}" _null_ _null_ jsonb_unnest_path _null_ _null_ _null_ ));
-DESCR("get all items of a JSON Path from jsonb");
 /* txid */
 DATA(insert OID = 2939 (  txid_snapshot_in			PGNSP PGUID 12 1  0 0 0 f f f f t f i s 1 0 2970 "2275" _null_ _null_ _null_ _null_ _null_ txid_snapshot_in _null_ _null_ _null_ ));
 DESCR("I/O");

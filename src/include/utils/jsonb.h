@@ -380,18 +380,9 @@ extern char *JsonbToCString(StringInfo out, JsonbContainer *in,
 			   int estimated_len);
 extern char *JsonbToCStringIndent(StringInfo out, JsonbContainer *in,
 					 int estimated_len);
-
-#ifndef JSONPATH_H
-typedef char *JsonPath;
-extern bool JsonbPathExists(Jsonb *, JsonPath path, void *args);
-extern Jsonb *JsonbPathQuery(Jsonb *jb, JsonPath jp, JsonWrapper wrapper,
-							 bool *empty, void *args);
-extern Jsonb *JsonbPathValue(Jsonb *jb, JsonPath jp, bool *empty, void *args);
-#endif
-
 extern Jsonb *JsonbMakeEmptyArray(void);
 extern Jsonb *JsonbMakeEmptyObject(void);
-
 extern char *JsonbUnquote(Jsonb *jb);
+extern JsonbValue *JsonbExtractScalar(JsonbContainer *jbc, JsonbValue *res);
 
 #endif   /* __JSONB_H__ */

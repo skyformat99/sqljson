@@ -1567,8 +1567,8 @@ makeParentJsonTableNode(ParseState *pstate, JsonTableContext *cxt,
 	/* FIXME passing */
 	/* Make jsonb_unnest_path() call */
 	fcall = makeFuncCall(list_make2(makeString(pstrdup("pg_catalog")),
-									makeString(pstrdup("jsonb_unnest_path"))),
-						 list_make2(expr, path),
+									makeString(pstrdup("_jsonpath_object"))),
+						 list_make2(path, expr),
 						 -1);
 
 	/* Make alias for RangeFunction */

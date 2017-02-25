@@ -71,6 +71,7 @@
 #include "utils/builtins.h"
 #include "utils/date.h"
 #include "utils/jsonb.h"
+#include "utils/jsonpath.h"
 #include "utils/lsyscache.h"
 #include "utils/timestamp.h"
 #include "utils/typcache.h"
@@ -3675,7 +3676,7 @@ ExecEvalJson(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 	JsonExpr   *jexpr = op->d.jsonexpr.jsexpr;
 	Datum		item;
 	Datum		res = (Datum) 0;
-	char	   *path;
+	JsonPath   *path;
 	Oid			formattedType = exprType(jexpr->formatted_expr ?
 										 jexpr->formatted_expr :
 										 jexpr->raw_expr);
@@ -3694,7 +3695,7 @@ ExecEvalJson(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 
 	item = op->d.jsonexpr.raw_expr->value;
 
-	path = DatumGetCString(jexpr->path_spec->constvalue);
+	path = DatumGetJsonPath(jexpr->path_spec->constvalue);
 
 	PG_TRY();
 	{
@@ -3719,8 +3720,7 @@ ExecEvalJson(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 		switch (jexpr->op)
 		{
 			case IS_JSON_QUERY:
-				jb = JsonbPathQuery(jb, path, jexpr->wrapper, &empty,
-									&op->d.jsonexpr.args);
+				jb = JsonbPathQuery(jb, path, jexpr->wrapper, &empty, NULL);
 				if (jb)
 				{
 					res = JsonbGetDatum(jb);
@@ -3729,7 +3729,7 @@ ExecEvalJson(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 				break;
 
 			case IS_JSON_VALUE:
-				jb = JsonbPathValue(jb, path, &empty, &op->d.jsonexpr.args);
+				jb = JsonbPathValue(jb, path, &empty, NULL);
 
 				if (jb)
 				{
@@ -3739,8 +3739,7 @@ ExecEvalJson(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 				break;
 
 			case IS_JSON_EXISTS:
-				res = BoolGetDatum(JsonbPathExists(jb, path,
-												   &op->d.jsonexpr.args));
+				res = BoolGetDatum(JsonbPathExists(jb, path, NULL));
 				*op->resnull = false;
 				break;
 

@@ -4140,6 +4140,7 @@ static JsonExpr *
 transformJsonExprCommon(ParseState *pstate, JsonFuncExpr *func)
 {
 	JsonExpr   *jsexpr = makeNode(JsonExpr);
+	Datum		jsonpath;
 
 	if (func->common->pathname)
 		ereport(ERROR,
@@ -4162,9 +4163,11 @@ transformJsonExprCommon(ParseState *pstate, JsonFuncExpr *func)
 
 	jsexpr->format = func->common->expr->format;
 
-	jsexpr->path_spec = makeConst(CSTRINGOID, -1, InvalidOid, -2,
-								  PointerGetDatum(func->common->pathspec),
-								  false, false);
+	jsonpath = DirectFunctionCall1(jsonpath_in,
+									CStringGetDatum(func->common->pathspec));
+
+	jsexpr->path_spec = makeConst(JSONPATHOID, -1, InvalidOid, -1,
+								  jsonpath, false, false);
 
 	transformJsonPassingArgs(pstate, func->common->passing, &jsexpr->passing);
 

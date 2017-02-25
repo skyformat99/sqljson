@@ -163,4 +163,9 @@ JsonPathExecResult	executeJsonPath(JsonPath *path,
 									Jsonb *json,
 									List **foundJson);
 
+extern bool   JsonbPathExists(Jsonb *, JsonPath *path, List *vars);
+extern Jsonb *JsonbPathValue(Jsonb *jb, JsonPath *jp, bool *empty, List *vars);
+extern Jsonb *JsonbPathQuery(Jsonb *jb, JsonPath *jp, JsonWrapper wrapper,
+							 bool *empty, List *vars);
+
 #endif
