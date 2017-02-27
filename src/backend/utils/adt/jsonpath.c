@@ -19,9 +19,8 @@
 #include "utils/json.h"
 #include "utils/jsonpath.h"
 
-static JsonPathExecResult
-recursiveExecute(JsonPathItem *jsp, List *vars, JsonbValue *jb,
-				 JsonPathItem *jspLeftArg, List **found);
+static JsonPathExecResult recursiveExecute(JsonPathItem *jsp, List *vars,
+										   JsonbValue *jb, List **found);
 
 /*****************************INPUT/OUTPUT************************************/
 static int
@@ -843,7 +842,7 @@ makeCompare(int32 op, JsonbValue *jb1, JsonbValue *jb2)
 }
 
 static JsonPathExecResult
-executeExpr(JsonPathItem *jsp, List *vars, JsonbValue *jb, JsonPathItem *jspLeftArg)
+executeExpr(JsonPathItem *jsp, List *vars, JsonbValue *jb)
 {
 	JsonPathExecResult res;
 	JsonPathItem elem;
@@ -856,12 +855,12 @@ executeExpr(JsonPathItem *jsp, List *vars, JsonbValue *jb, JsonPathItem *jspLeft
 	bool		found = false;
 
 	jspGetLeftArg(jsp, &elem);
-	res = recursiveExecute(&elem, vars, jb, jspLeftArg, &lseq);
+	res = recursiveExecute(&elem, vars, jb, &lseq);
 	if (res != jperOk)
 		return res;
 
 	jspGetRightArg(jsp, &elem);
-	res = recursiveExecute(&elem, vars, jb, jspLeftArg, &rseq);
+	res = recursiveExecute(&elem, vars, jb, &rseq);
 	if (res != jperOk)
 		return res;
 
@@ -928,10 +927,6 @@ copyJsonbValue(JsonbValue *src)
 }
 
 static JsonPathExecResult
-recursiveExecute(JsonPathItem *jsp, List *vars, JsonbValue *jb,
-				 JsonPathItem *jspLeftArg, List **found);
-
-static JsonPathExecResult
 recursiveAny(JsonPathItem *jsp, List *vars, JsonbValue *jb,
 			 List **found, uint32 level, uint32 first, uint32 last)
 {
@@ -990,8 +985,7 @@ recursiveAny(JsonPathItem *jsp, List *vars, JsonbValue *jb,
 }
 
 static JsonPathExecResult
-recursiveExecute(JsonPathItem *jsp, List *vars, JsonbValue *jb,
-				 JsonPathItem *jspLeftArg, List **found)
+recursiveExecute(JsonPathItem *jsp, List *vars, JsonbValue *jb, List **found)
 {
 	JsonPathItem		elem;
 	JsonPathExecResult	res = jperNotFound;
@@ -1001,33 +995,33 @@ recursiveExecute(JsonPathItem *jsp, List *vars, JsonbValue *jb,
 	switch(jsp->type) {
 		case jpiAnd:
 			jspGetLeftArg(jsp, &elem);
-			res = recursiveExecute(&elem, vars, jb, jspLeftArg, NULL);
+			res = recursiveExecute(&elem, vars, jb, NULL);
 			if (res != jperNotFound)
 			{
 				JsonPathExecResult res2;
 
 				jspGetRightArg(jsp, &elem);
-				res2 = recursiveExecute(&elem, vars, jb, jspLeftArg, NULL);
+				res2 = recursiveExecute(&elem, vars, jb, NULL);
 
 				res = res2 == jperOk ? res : res2;
 			}
 			break;
 		case jpiOr:
 			jspGetLeftArg(jsp, &elem);
-			res = recursiveExecute(&elem, vars, jb, jspLeftArg, NULL);
+			res = recursiveExecute(&elem, vars, jb, NULL);
 			if (res != jperOk)
 			{
 				JsonPathExecResult res2;
 
 				jspGetRightArg(jsp, &elem);
-				res2 = recursiveExecute(&elem, vars, jb, jspLeftArg, NULL);
+				res2 = recursiveExecute(&elem, vars, jb, NULL);
 
 				res = res2 == jperNotFound ? res : res2;
 			}
 			break;
 		case jpiNot:
 			jspGetArg(jsp, &elem);
-			switch((res = recursiveExecute(&elem, vars, jb, jspLeftArg, NULL)))
+			switch((res = recursiveExecute(&elem, vars, jb, NULL)))
 			{
 				case jperOk:
 					res = jperNotFound;
@@ -1041,7 +1035,7 @@ recursiveExecute(JsonPathItem *jsp, List *vars, JsonbValue *jb,
 			break;
 		case jpiIsUnknown:
 			jspGetArg(jsp, &elem);
-			res = recursiveExecute(&elem, vars, jb, jspLeftArg, NULL);
+			res = recursiveExecute(&elem, vars, jb, NULL);
 			res = res == jperError ? jperOk : jperNotFound;
 			break;
 		case jpiKey:
@@ -1058,7 +1052,7 @@ recursiveExecute(JsonPathItem *jsp, List *vars, JsonbValue *jb,
 				{
 					if (jspGetNext(jsp, &elem))
 					{
-						res = recursiveExecute(&elem, vars, v, NULL, found);
+						res = recursiveExecute(&elem, vars, v, found);
 						pfree(v);
 					}
 					else
@@ -1095,11 +1089,11 @@ recursiveExecute(JsonPathItem *jsp, List *vars, JsonbValue *jb,
 
 				JsonbExtractScalar(jb->val.binary.data, &v);
 
-				res = recursiveExecute(&elem, vars, &v, jspLeftArg, found);
+				res = recursiveExecute(&elem, vars, &v, found);
 			}
 			else
 			{
-				res = recursiveExecute(&elem, vars, jb, jspLeftArg, found);
+				res = recursiveExecute(&elem, vars, jb, found);
 			}
 			break;
 		case jpiAnyArray:
@@ -1119,7 +1113,7 @@ recursiveExecute(JsonPathItem *jsp, List *vars, JsonbValue *jb,
 					{
 						if (hasNext == true)
 						{
-							res = recursiveExecute(&elem, vars, &v, NULL, found);
+							res = recursiveExecute(&elem, vars, &v, found);
 
 							if (res == jperError)
 								break;
@@ -1160,7 +1154,7 @@ recursiveExecute(JsonPathItem *jsp, List *vars, JsonbValue *jb,
 
 					if (hasNext == true)
 					{
-						res = recursiveExecute(&elem, vars, v, NULL, found);
+						res = recursiveExecute(&elem, vars, v, found);
 
 						if (res == jperError || found == NULL)
 							break;
@@ -1197,7 +1191,7 @@ recursiveExecute(JsonPathItem *jsp, List *vars, JsonbValue *jb,
 					{
 						if (hasNext == true)
 						{
-							res = recursiveExecute(&elem, vars, &v, NULL, found);
+							res = recursiveExecute(&elem, vars, &v, found);
 
 							if (res == jperError)
 								break;
@@ -1224,12 +1218,12 @@ recursiveExecute(JsonPathItem *jsp, List *vars, JsonbValue *jb,
 		case jpiGreater:
 		case jpiLessOrEqual:
 		case jpiGreaterOrEqual:
-			res = executeExpr(jsp, vars, jb, jspLeftArg);
+			res = executeExpr(jsp, vars, jb);
 			break;
 		case jpiRoot:
 			if (jspGetNext(jsp, &elem))
 			{
-				res = recursiveExecute(&elem, vars, jb, jspLeftArg, found);
+				res = recursiveExecute(&elem, vars, jb, found);
 			}
 			else
 			{
@@ -1241,11 +1235,11 @@ recursiveExecute(JsonPathItem *jsp, List *vars, JsonbValue *jb,
 			break;
 		case jpiFilter:
 			jspGetArg(jsp, &elem);
-			res = recursiveExecute(&elem, vars, jb, jspLeftArg, NULL);
+			res = recursiveExecute(&elem, vars, jb, NULL);
 			if (res != jperOk)
 				res = jperNotFound;
 			else if (jspGetNext(jsp, &elem))
-				res = recursiveExecute(&elem, vars, jb, jspLeftArg, found);
+				res = recursiveExecute(&elem, vars, jb, found);
 			else if (found)
 				*found = lappend(*found, copyJsonbValue(jb));
 			break;
@@ -1258,7 +1252,7 @@ recursiveExecute(JsonPathItem *jsp, List *vars, JsonbValue *jb,
 			{
 				if (hasNext)
 				{
-					res = recursiveExecute(&elem, vars, jb, NULL, found);
+					res = recursiveExecute(&elem, vars, jb, found);
 					if (res == jperOk && !found)
 						break;
 				}
@@ -1280,7 +1274,7 @@ recursiveExecute(JsonPathItem *jsp, List *vars, JsonbValue *jb,
 		}
 		case jpiExists:
 			jspGetArg(jsp, &elem);
-			res = recursiveExecute(&elem, vars, jb, NULL, NULL);
+			res = recursiveExecute(&elem, vars, jb, NULL);
 			break;
 		case jpiNull:
 		case jpiBool:
@@ -1314,7 +1308,7 @@ executeJsonPath(JsonPath *path, List *vars, Jsonb *json, List **foundJson)
 
 	jspInit(&jsp, path);
 
-	return recursiveExecute(&jsp, vars, &jbv, NULL, foundJson);
+	return recursiveExecute(&jsp, vars, &jbv, foundJson);
 }
 
 /********************Example functions for JsonPath***************************/
