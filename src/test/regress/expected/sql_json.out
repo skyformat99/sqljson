@@ -3122,218 +3122,218 @@ select '$ ? (a < +10.1e+1)'::jsonpath;
  $?("a" < 101)
 (1 row)
 
-select _jsonpath_exist('$.a.b', '{"a": 12}');
- _jsonpath_exist 
------------------
+select _jsonpath_exists('{"a": 12}', '$.a.b');
+ _jsonpath_exists 
+------------------
  f
 (1 row)
 
-select _jsonpath_exist('$.b', '{"a": 12}');
- _jsonpath_exist 
------------------
+select _jsonpath_exists('{"a": 12}', '$.b');
+ _jsonpath_exists 
+------------------
  f
 (1 row)
 
-select _jsonpath_exist('$.a.a', '{"a": {"a": 12}}');
- _jsonpath_exist 
------------------
+select _jsonpath_exists('{"a": {"a": 12}}', '$.a.a');
+ _jsonpath_exists 
+------------------
  t
 (1 row)
 
-select _jsonpath_exist('$.*.a', '{"a": {"a": 12}}');
- _jsonpath_exist 
------------------
+select _jsonpath_exists('{"a": {"a": 12}}', '$.*.a');
+ _jsonpath_exists 
+------------------
  t
 (1 row)
 
-select _jsonpath_exist('$.*.a', '{"b": {"a": 12}}');
- _jsonpath_exist 
------------------
+select _jsonpath_exists('{"b": {"a": 12}}', '$.*.a');
+ _jsonpath_exists 
+------------------
  t
 (1 row)
 
-select _jsonpath_exist('$.*', '{}');
- _jsonpath_exist 
------------------
+select _jsonpath_exists('{}', '$.*');
+ _jsonpath_exists 
+------------------
  f
 (1 row)
 
-select _jsonpath_exist('$.*', '{"a": 1}');
- _jsonpath_exist 
------------------
+select _jsonpath_exists('{"a": 1}', '$.*');
+ _jsonpath_exists 
+------------------
  t
 (1 row)
 
-select _jsonpath_exist('$.**{1}', '{"a": {"b": 1}}');
- _jsonpath_exist 
------------------
+select _jsonpath_exists('{"a": {"b": 1}}', '$.**{1}');
+ _jsonpath_exists 
+------------------
  t
 (1 row)
 
-select _jsonpath_exist('$.**{2}', '{"a": {"b": 1}}');
- _jsonpath_exist 
------------------
+select _jsonpath_exists('{"a": {"b": 1}}', '$.**{2}');
+ _jsonpath_exists 
+------------------
  t
 (1 row)
 
-select _jsonpath_exist('$.**{3}', '{"a": {"b": 1}}');
- _jsonpath_exist 
------------------
+select _jsonpath_exists('{"a": {"b": 1}}', '$.**{3}');
+ _jsonpath_exists 
+------------------
  f
 (1 row)
 
-select _jsonpath_exist('$.[*]', '[]');
- _jsonpath_exist 
------------------
+select _jsonpath_exists('[]', '$.[*]');
+ _jsonpath_exists 
+------------------
  f
 (1 row)
 
-select _jsonpath_exist('$.[*]', '[1]');
- _jsonpath_exist 
------------------
+select _jsonpath_exists('[1]', '$.[*]');
+ _jsonpath_exists 
+------------------
  t
 (1 row)
 
-select _jsonpath_exist('$.[1]', '[1]');
- _jsonpath_exist 
------------------
+select _jsonpath_exists('[1]', '$.[1]');
+ _jsonpath_exists 
+------------------
  f
 (1 row)
 
-select _jsonpath_exist('$.[0]', '[1]');
- _jsonpath_exist 
------------------
+select _jsonpath_exists('[1]', '$.[0]');
+ _jsonpath_exists 
+------------------
  t
 (1 row)
 
-select _jsonpath_exist('$ ? (@.a[*] >  @.b[*])', '{"a": [1,2,3], "b": [3,4,5]}');
- _jsonpath_exist 
------------------
+select _jsonpath_exists('{"a": [1,2,3], "b": [3,4,5]}', '$ ? (@.a[*] >  @.b[*])');
+ _jsonpath_exists 
+------------------
  f
 (1 row)
 
-select _jsonpath_exist('$ ? (@.a[*] >= @.b[*])', '{"a": [1,2,3], "b": [3,4,5]}');
- _jsonpath_exist 
------------------
+select _jsonpath_exists('{"a": [1,2,3], "b": [3,4,5]}', '$ ? (@.a[*] >= @.b[*])');
+ _jsonpath_exists 
+------------------
  t
 (1 row)
 
-select _jsonpath_exist('$ ? (@.a[*] >= @.b[*])', '{"a": [1,2,3], "b": [3,4,"5"]}');
- _jsonpath_exist 
------------------
+select _jsonpath_exists('{"a": [1,2,3], "b": [3,4,"5"]}', '$ ? (@.a[*] >= @.b[*])');
+ _jsonpath_exists 
+------------------
  f
 (1 row)
 
-select _jsonpath_exist('$ ? (@.a[*] >= @.b[*])', '{"a": [1,2,3], "b": [3,4,null]}');
- _jsonpath_exist 
------------------
+select _jsonpath_exists('{"a": [1,2,3], "b": [3,4,null]}', '$ ? (@.a[*] >= @.b[*])');
+ _jsonpath_exists 
+------------------
  t
 (1 row)
 
-select _jsonpath_exist('$ ? ((@ == "1") is unknown)', '1');
- _jsonpath_exist 
------------------
+select _jsonpath_exists('1', '$ ? ((@ == "1") is unknown)');
+ _jsonpath_exists 
+------------------
  t
 (1 row)
 
-select _jsonpath_exist('$ ? ((@ == 1) is unknown)', '1');
- _jsonpath_exist 
------------------
+select _jsonpath_exists('1', '$ ? ((@ == 1) is unknown)');
+ _jsonpath_exists 
+------------------
  f
 (1 row)
 
-select * from _jsonpath_object('$.a', '{"a": 12, "b": {"a": 13}}');
+select * from _jsonpath_object('{"a": 12, "b": {"a": 13}}', '$.a');
  _jsonpath_object 
 ------------------
  12
 (1 row)
 
-select * from _jsonpath_object('$.b', '{"a": 12, "b": {"a": 13}}');
+select * from _jsonpath_object('{"a": 12, "b": {"a": 13}}', '$.b');
  _jsonpath_object 
 ------------------
  {"a": 13}
 (1 row)
 
-select * from _jsonpath_object('$.*', '{"a": 12, "b": {"a": 13}}');
+select * from _jsonpath_object('{"a": 12, "b": {"a": 13}}', '$.*');
  _jsonpath_object 
 ------------------
  12
  {"a": 13}
 (2 rows)
 
-select * from _jsonpath_object('$.*.a', '{"a": 12, "b": {"a": 13}}');
+select * from _jsonpath_object('{"a": 12, "b": {"a": 13}}', '$.*.a');
  _jsonpath_object 
 ------------------
  13
 (1 row)
 
-select * from _jsonpath_object('$.[*].a', '[12, {"a": 13}, {"b": 14}]');
+select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', '$.[*].a');
  _jsonpath_object 
 ------------------
  13
 (1 row)
 
-select * from _jsonpath_object('$.[*].*', '[12, {"a": 13}, {"b": 14}]');
+select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', '$.[*].*');
  _jsonpath_object 
 ------------------
  13
  14
 (2 rows)
 
-select * from _jsonpath_object('$.[0].a', '[12, {"a": 13}, {"b": 14}]');
+select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', '$.[0].a');
  _jsonpath_object 
 ------------------
 (0 rows)
 
-select * from _jsonpath_object('$.[1].a', '[12, {"a": 13}, {"b": 14}]');
+select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', '$.[1].a');
  _jsonpath_object 
 ------------------
  13
 (1 row)
 
-select * from _jsonpath_object('$.[2].a', '[12, {"a": 13}, {"b": 14}]');
+select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', '$.[2].a');
  _jsonpath_object 
 ------------------
 (0 rows)
 
-select * from _jsonpath_object('$.[0,1].a', '[12, {"a": 13}, {"b": 14}]');
+select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', '$.[0,1].a');
  _jsonpath_object 
 ------------------
  13
 (1 row)
 
-select * from _jsonpath_object('$.[0 to 10].a', '[12, {"a": 13}, {"b": 14}]');
+select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', '$.[0 to 10].a');
  _jsonpath_object 
 ------------------
  13
 (1 row)
 
-select * from _jsonpath_object('$', '{"a": 10}');
+select * from _jsonpath_object('{"a": 10}', '$');
  _jsonpath_object 
 ------------------
  {"a": 10}
 (1 row)
 
-select * from _jsonpath_object('$ ? (.a < $value)', '{"a": 10}');
+select * from _jsonpath_object('{"a": 10}', '$ ? (.a < $value)');
 ERROR:  could not find 'value' passed variable
-select * from _jsonpath_object('$ ? (.a < $value)', '{"a": 10}', '{"value" : 13}');
+select * from _jsonpath_object('{"a": 10}', '$ ? (.a < $value)', '{"value" : 13}');
  _jsonpath_object 
 ------------------
  {"a": 10}
 (1 row)
 
-select * from _jsonpath_object('$ ? (.a < $value)', '{"a": 10}', '{"value" : 8}');
+select * from _jsonpath_object('{"a": 10}', '$ ? (.a < $value)', '{"value" : 8}');
  _jsonpath_object 
 ------------------
 (0 rows)
 
-select * from _jsonpath_object('$.a ? (@ < $value)', '{"a": 10}', '{"value" : 13}');
+select * from _jsonpath_object('{"a": 10}', '$.a ? (@ < $value)', '{"value" : 13}');
  _jsonpath_object 
 ------------------
  10
 (1 row)
 
-select * from _jsonpath_object('$.[*] ? (@ < $value)', '[10,11,12,13,14,15]', '{"value" : 13}');
+select * from _jsonpath_object('[10,11,12,13,14,15]', '$.[*] ? (@ < $value)', '{"value" : 13}');
  _jsonpath_object 
 ------------------
  10
@@ -3341,14 +3341,14 @@ select * from _jsonpath_object('$.[*] ? (@ < $value)', '[10,11,12,13,14,15]', '{
  12
 (3 rows)
 
-select * from _jsonpath_object('$.[0,1] ? (@ < $value)', '[10,11,12,13,14,15]', '{"value" : 13}');
+select * from _jsonpath_object('[10,11,12,13,14,15]', '$.[0,1] ? (@ < $value)', '{"value" : 13}');
  _jsonpath_object 
 ------------------
  10
  11
 (2 rows)
 
-select * from _jsonpath_object('$.[0 to 2] ? (@ < $value)', '[10,11,12,13,14,15]', '{"value" : 15}');
+select * from _jsonpath_object('[10,11,12,13,14,15]', '$.[0 to 2] ? (@ < $value)', '{"value" : 15}');
  _jsonpath_object 
 ------------------
  10
@@ -3356,19 +3356,19 @@ select * from _jsonpath_object('$.[0 to 2] ? (@ < $value)', '[10,11,12,13,14,15]
  12
 (3 rows)
 
-select * from _jsonpath_object('$.[*] ? (@ == "1")', '[1,"1",2,"2",null]');
+select * from _jsonpath_object('[1,"1",2,"2",null]', '$.[*] ? (@ == "1")');
  _jsonpath_object 
 ------------------
  "1"
 (1 row)
 
-select * from _jsonpath_object('$.[*] ? (@ == $value)', '[1,"1",2,"2",null]', '{"value" : "1"}');
+select * from _jsonpath_object('[1,"1",2,"2",null]', '$.[*] ? (@ == $value)', '{"value" : "1"}');
  _jsonpath_object 
 ------------------
  "1"
 (1 row)
 
-select * from _jsonpath_object('$.**', '{"a": {"b": 1}}');
+select * from _jsonpath_object('{"a": {"b": 1}}', '$.**');
  _jsonpath_object 
 ------------------
  {"a": {"b": 1}}
@@ -3376,201 +3376,201 @@ select * from _jsonpath_object('$.**', '{"a": {"b": 1}}');
  1
 (3 rows)
 
-select * from _jsonpath_object('$.**{1}', '{"a": {"b": 1}}');
+select * from _jsonpath_object('{"a": {"b": 1}}', '$.**{1}');
  _jsonpath_object 
 ------------------
  {"b": 1}
 (1 row)
 
-select * from _jsonpath_object('$.**{1,}', '{"a": {"b": 1}}');
+select * from _jsonpath_object('{"a": {"b": 1}}', '$.**{1,}');
  _jsonpath_object 
 ------------------
  {"b": 1}
  1
 (2 rows)
 
-select * from _jsonpath_object('$.**{2}', '{"a": {"b": 1}}');
+select * from _jsonpath_object('{"a": {"b": 1}}', '$.**{2}');
  _jsonpath_object 
 ------------------
  1
 (1 row)
 
-select * from _jsonpath_object('$.**{2,}', '{"a": {"b": 1}}');
+select * from _jsonpath_object('{"a": {"b": 1}}', '$.**{2,}');
  _jsonpath_object 
 ------------------
  1
 (1 row)
 
-select * from _jsonpath_object('$.**{3,}', '{"a": {"b": 1}}');
+select * from _jsonpath_object('{"a": {"b": 1}}', '$.**{3,}');
  _jsonpath_object 
 ------------------
 (0 rows)
 
-select * from _jsonpath_object('$.**.b ? ( @ > 0)', '{"a": {"b": 1}}');
+select * from _jsonpath_object('{"a": {"b": 1}}', '$.**.b ? ( @ > 0)');
  _jsonpath_object 
 ------------------
  1
 (1 row)
 
-select * from _jsonpath_object('$.**{0}.b ? ( @ > 0)', '{"a": {"b": 1}}');
+select * from _jsonpath_object('{"a": {"b": 1}}', '$.**{0}.b ? ( @ > 0)');
  _jsonpath_object 
 ------------------
 (0 rows)
 
-select * from _jsonpath_object('$.**{1}.b ? ( @ > 0)', '{"a": {"b": 1}}');
+select * from _jsonpath_object('{"a": {"b": 1}}', '$.**{1}.b ? ( @ > 0)');
  _jsonpath_object 
 ------------------
  1
 (1 row)
 
-select * from _jsonpath_object('$.**{0,}.b ? ( @ > 0)', '{"a": {"b": 1}}');
+select * from _jsonpath_object('{"a": {"b": 1}}', '$.**{0,}.b ? ( @ > 0)');
  _jsonpath_object 
 ------------------
  1
 (1 row)
 
-select * from _jsonpath_object('$.**{1,}.b ? ( @ > 0)', '{"a": {"b": 1}}');
+select * from _jsonpath_object('{"a": {"b": 1}}', '$.**{1,}.b ? ( @ > 0)');
  _jsonpath_object 
 ------------------
  1
 (1 row)
 
-select * from _jsonpath_object('$.**{1,2}.b ? ( @ > 0)', '{"a": {"b": 1}}');
+select * from _jsonpath_object('{"a": {"b": 1}}', '$.**{1,2}.b ? ( @ > 0)');
  _jsonpath_object 
 ------------------
  1
 (1 row)
 
-select * from _jsonpath_object('$.**.b ? ( @ > 0)', '{"a": {"c": {"b": 1}}}');
+select * from _jsonpath_object('{"a": {"c": {"b": 1}}}', '$.**.b ? ( @ > 0)');
  _jsonpath_object 
 ------------------
  1
 (1 row)
 
-select * from _jsonpath_object('$.**{0}.b ? ( @ > 0)', '{"a": {"c": {"b": 1}}}');
+select * from _jsonpath_object('{"a": {"c": {"b": 1}}}', '$.**{0}.b ? ( @ > 0)');
  _jsonpath_object 
 ------------------
 (0 rows)
 
-select * from _jsonpath_object('$.**{1}.b ? ( @ > 0)', '{"a": {"c": {"b": 1}}}');
+select * from _jsonpath_object('{"a": {"c": {"b": 1}}}', '$.**{1}.b ? ( @ > 0)');
  _jsonpath_object 
 ------------------
 (0 rows)
 
-select * from _jsonpath_object('$.**{0,}.b ? ( @ > 0)', '{"a": {"c": {"b": 1}}}');
+select * from _jsonpath_object('{"a": {"c": {"b": 1}}}', '$.**{0,}.b ? ( @ > 0)');
  _jsonpath_object 
 ------------------
  1
 (1 row)
 
-select * from _jsonpath_object('$.**{1,}.b ? ( @ > 0)', '{"a": {"c": {"b": 1}}}');
+select * from _jsonpath_object('{"a": {"c": {"b": 1}}}', '$.**{1,}.b ? ( @ > 0)');
  _jsonpath_object 
 ------------------
  1
 (1 row)
 
-select * from _jsonpath_object('$.**{1,2}.b ? ( @ > 0)', '{"a": {"c": {"b": 1}}}');
+select * from _jsonpath_object('{"a": {"c": {"b": 1}}}', '$.**{1,2}.b ? ( @ > 0)');
  _jsonpath_object 
 ------------------
  1
 (1 row)
 
-select * from _jsonpath_object('$.**{2,3}.b ? ( @ > 0)', '{"a": {"c": {"b": 1}}}');
+select * from _jsonpath_object('{"a": {"c": {"b": 1}}}', '$.**{2,3}.b ? ( @ > 0)');
  _jsonpath_object 
 ------------------
  1
 (1 row)
 
-select * from _jsonpath_exist('$.**.b ? ( @ > 0)', '{"a": {"b": 1}}');
- _jsonpath_exist 
------------------
+select * from _jsonpath_exists('{"a": {"b": 1}}', '$.**.b ? (@ > 0)');
+ _jsonpath_exists 
+------------------
  t
 (1 row)
 
-select * from _jsonpath_exist('$.**{0}.b ? ( @ > 0)', '{"a": {"b": 1}}');
- _jsonpath_exist 
------------------
+select * from _jsonpath_exists('{"a": {"b": 1}}', '$.**{0}.b ? (@ > 0)');
+ _jsonpath_exists 
+------------------
  f
 (1 row)
 
-select * from _jsonpath_exist('$.**{1}.b ? ( @ > 0)', '{"a": {"b": 1}}');
- _jsonpath_exist 
------------------
+select * from _jsonpath_exists('{"a": {"b": 1}}', '$.**{1}.b ? (@ > 0)');
+ _jsonpath_exists 
+------------------
  t
 (1 row)
 
-select * from _jsonpath_exist('$.**{0,}.b ? ( @ > 0)', '{"a": {"b": 1}}');
- _jsonpath_exist 
------------------
+select * from _jsonpath_exists('{"a": {"b": 1}}', '$.**{0,}.b ? (@ > 0)');
+ _jsonpath_exists 
+------------------
  t
 (1 row)
 
-select * from _jsonpath_exist('$.**{1,}.b ? ( @ > 0)', '{"a": {"b": 1}}');
- _jsonpath_exist 
------------------
+select * from _jsonpath_exists('{"a": {"b": 1}}', '$.**{1,}.b ? (@ > 0)');
+ _jsonpath_exists 
+------------------
  t
 (1 row)
 
-select * from _jsonpath_exist('$.**{1,2}.b ? ( @ > 0)', '{"a": {"b": 1}}');
- _jsonpath_exist 
------------------
+select * from _jsonpath_exists('{"a": {"b": 1}}', '$.**{1,2}.b ? (@ > 0)');
+ _jsonpath_exists 
+------------------
  t
 (1 row)
 
-select * from _jsonpath_exist('$.**.b ? ( @ > 0)', '{"a": {"c": {"b": 1}}}');
- _jsonpath_exist 
------------------
+select * from _jsonpath_exists('{"a": {"c": {"b": 1}}}', '$.**.b ? (@ > 0)');
+ _jsonpath_exists 
+------------------
  t
 (1 row)
 
-select * from _jsonpath_exist('$.**{0}.b ? ( @ > 0)', '{"a": {"c": {"b": 1}}}');
- _jsonpath_exist 
------------------
+select * from _jsonpath_exists('{"a": {"c": {"b": 1}}}', '$.**{0}.b ? (@ > 0)');
+ _jsonpath_exists 
+------------------
  f
 (1 row)
 
-select * from _jsonpath_exist('$.**{1}.b ? ( @ > 0)', '{"a": {"c": {"b": 1}}}');
- _jsonpath_exist 
------------------
+select * from _jsonpath_exists('{"a": {"c": {"b": 1}}}', '$.**{1}.b ? (@ > 0)');
+ _jsonpath_exists 
+------------------
  f
 (1 row)
 
-select * from _jsonpath_exist('$.**{0,}.b ? ( @ > 0)', '{"a": {"c": {"b": 1}}}');
- _jsonpath_exist 
------------------
+select * from _jsonpath_exists('{"a": {"c": {"b": 1}}}', '$.**{0,}.b ? (@ > 0)');
+ _jsonpath_exists 
+------------------
  t
 (1 row)
 
-select * from _jsonpath_exist('$.**{1,}.b ? ( @ > 0)', '{"a": {"c": {"b": 1}}}');
- _jsonpath_exist 
------------------
+select * from _jsonpath_exists('{"a": {"c": {"b": 1}}}', '$.**{1,}.b ? (@ > 0)');
+ _jsonpath_exists 
+------------------
  t
 (1 row)
 
-select * from _jsonpath_exist('$.**{1,2}.b ? ( @ > 0)', '{"a": {"c": {"b": 1}}}');
- _jsonpath_exist 
------------------
+select * from _jsonpath_exists('{"a": {"c": {"b": 1}}}', '$.**{1,2}.b ? (@ > 0)');
+ _jsonpath_exists 
+------------------
  t
 (1 row)
 
-select * from _jsonpath_exist('$.**{2,3}.b ? ( @ > 0)', '{"a": {"c": {"b": 1}}}');
- _jsonpath_exist 
------------------
+select * from _jsonpath_exists('{"a": {"c": {"b": 1}}}', '$.**{2,3}.b ? (@ > 0)');
+ _jsonpath_exists 
+------------------
  t
 (1 row)
 
-select _jsonpath_object('$.g ? (exists (@.x))', '{"g": {"x": 2}}');
+select _jsonpath_object('{"g": {"x": 2}}', '$.g ? (exists (@.x))');
  _jsonpath_object 
 ------------------
  {"x": 2}
 (1 row)
 
-select _jsonpath_object('$.g ? (exists (@.y))', '{"g": {"x": 2}}');
+select _jsonpath_object('{"g": {"x": 2}}', '$.g ? (exists (@.y))');
  _jsonpath_object 
 ------------------
 (0 rows)
 
-select _jsonpath_object('$.g ? (exists (@.x ? (@ >= 2) ))', '{"g": {"x": 2}}');
+select _jsonpath_object('{"g": {"x": 2}}', '$.g ? (exists (@.x ? (@ >= 2)))');
  _jsonpath_object 
 ------------------
  {"x": 2}

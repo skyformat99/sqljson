@@ -1569,7 +1569,7 @@ makeParentJsonTableNode(ParseState *pstate, JsonTableContext *cxt,
 	path->val.val.str = pathSpec;
 	path->location = -1;
 
-	args = list_make2(path, expr);
+	args = list_make2(expr, path);
 
 	if (cxt->passingArgsRef)
 		args = lappend(args, cxt->passingArgsRef);

@@ -1394,10 +1394,10 @@ makePassingVars(Jsonb *jb)
 }
 
 static Datum
-__jsonpath_exist(PG_FUNCTION_ARGS)
+__jsonpath_exists(PG_FUNCTION_ARGS)
 {
-	JsonPath			*jp = PG_GETARG_JSONPATH(0);
-	Jsonb				*jb = PG_GETARG_JSONB(1);
+	Jsonb				*jb = PG_GETARG_JSONB(0);
+	JsonPath			*jp = PG_GETARG_JSONPATH(1);
 	JsonPathExecResult	res;
 	List				*vars = NIL;
 
@@ -1406,8 +1406,8 @@ __jsonpath_exist(PG_FUNCTION_ARGS)
 
 	res = executeJsonPath(jp, vars, jb, NULL);
 
-	PG_FREE_IF_COPY(jp, 0);
-	PG_FREE_IF_COPY(jb, 1);
+	PG_FREE_IF_COPY(jb, 0);
+	PG_FREE_IF_COPY(jp, 1);
 
 	if (res == jperError)
 		elog(ERROR, "Something wrong");
@@ -1416,15 +1416,15 @@ __jsonpath_exist(PG_FUNCTION_ARGS)
 }
 
 Datum
-_jsonpath_exist2(PG_FUNCTION_ARGS)
+_jsonpath_exists2(PG_FUNCTION_ARGS)
 {
-	return __jsonpath_exist(fcinfo);
+	return __jsonpath_exists(fcinfo);
 }
 
 Datum
-_jsonpath_exist3(PG_FUNCTION_ARGS)
+_jsonpath_exists3(PG_FUNCTION_ARGS)
 {
-	return __jsonpath_exist(fcinfo);
+	return __jsonpath_exists(fcinfo);
 }
 
 static Datum
@@ -1437,7 +1437,7 @@ __jsonpath_object(PG_FUNCTION_ARGS)
 
 	if (SRF_IS_FIRSTCALL())
 	{
-		JsonPath			*jp = PG_GETARG_JSONPATH(0);
+		JsonPath			*jp = PG_GETARG_JSONPATH(1);
 		Jsonb				*jb;
 		JsonPathExecResult	res;
 		MemoryContext		oldcontext;
@@ -1446,7 +1446,7 @@ __jsonpath_object(PG_FUNCTION_ARGS)
 		funcctx = SRF_FIRSTCALL_INIT();
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
-		jb = PG_GETARG_JSONB_COPY(1);
+		jb = PG_GETARG_JSONB_COPY(0);
 		if (PG_NARGS() == 3)
 			vars = makePassingVars(PG_GETARG_JSONB(2));
 
@@ -1455,7 +1455,7 @@ __jsonpath_object(PG_FUNCTION_ARGS)
 		if (res == jperError)
 			elog(ERROR, "Something wrong");
 
-		PG_FREE_IF_COPY(jp, 0);
+		PG_FREE_IF_COPY(jp, 1);
 
 		funcctx->user_fctx = found;
 
