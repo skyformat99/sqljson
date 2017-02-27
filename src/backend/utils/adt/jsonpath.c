@@ -96,6 +96,14 @@ flattenJsonPathParseItem(StringInfo buf, JsonPathParseItem *item)
 								   (char*)item->array.elems,
 								   item->array.nelems * sizeof(item->array.elems[0]));
 			break;
+		case jpiAny:
+			appendBinaryStringInfo(buf,
+								   (char*)&item->anybounds.first,
+								   sizeof(item->anybounds.first));
+			appendBinaryStringInfo(buf,
+								   (char*)&item->anybounds.last,
+								   sizeof(item->anybounds.last));
+			break;
 		default:
 			elog(ERROR, "1Unknown type: %d", item->type);
 	}
@@ -254,6 +262,23 @@ printJsonPathItem(StringInfo buf, JsonPathItem *v, bool inKey, bool printBracket
 			}
 			appendStringInfoChar(buf, ']');
 			break;
+		case jpiAny:
+			if (inKey)
+				appendStringInfoChar(buf, '.');
+
+			if (v->anybounds.first == 0 &&
+					v->anybounds.last == PG_UINT32_MAX)
+				appendBinaryStringInfo(buf, "**", 2);
+			else if (v->anybounds.first == 0)
+				appendStringInfo(buf, "**{,%u}", v->anybounds.last);
+			else if (v->anybounds.last == PG_UINT32_MAX)
+				appendStringInfo(buf, "**{%u,}", v->anybounds.first);
+			else if (v->anybounds.first == v->anybounds.last)
+				appendStringInfo(buf, "**{%u}", v->anybounds.first);
+			else
+				appendStringInfo(buf, "**{%u,%u}", v->anybounds.first,
+												   v->anybounds.last);
+			break;
 		default:
 			elog(ERROR, "Unknown JsonPathItem type: %d", v->type);
 	}
@@ -353,6 +378,10 @@ jspInitByBuffer(JsonPathItem *v, char *base, int32 pos)
 			read_int32(v->array.nelems, base, pos);
 			read_int32_n(v->array.elems, base, pos, v->array.nelems);
 			break;
+		case jpiAny:
+			read_int32(v->anybounds.first, base, pos);
+			read_int32(v->anybounds.last, base, pos);
+			break;
 		default:
 			elog(ERROR, "3Unknown type: %d", v->type);
 	}
@@ -381,6 +410,7 @@ jspGetNext(JsonPathItem *v, JsonPathItem *a)
 	{
 		Assert(
 			v->type == jpiKey ||
+			v->type == jpiAny ||
 			v->type == jpiAnyArray ||
 			v->type == jpiAnyKey ||
 			v->type == jpiIndexArray ||
@@ -693,6 +723,68 @@ copyJsonbValue(JsonbValue *src)
 
 static JsonPathExecResult
 recursiveExecute(JsonPathItem *jsp, List *vars, JsonbValue *jb,
+				 JsonPathItem *jspLeftArg, List **found);
+
+static JsonPathExecResult
+recursiveAny(JsonPathItem *jsp, List *vars, JsonbValue *jb,
+			 List **found, uint32 level, uint32 first, uint32 last)
+{
+	JsonPathExecResult	res = jperNotFound;
+	JsonbIterator		*it;
+	int32				r;
+	JsonbValue			v;
+
+	check_stack_depth();
+
+	if (level > last)
+		return res;
+
+	it = JsonbIteratorInit(jb->val.binary.data);
+
+	while((r = JsonbIteratorNext(&it, &v, true)) != WJB_DONE)
+	{
+		if (r == WJB_KEY)
+		{
+			r = JsonbIteratorNext(&it, &v, true);
+			Assert(r == WJB_VALUE);
+		}
+
+		if (r == WJB_VALUE || r == WJB_ELEM)
+		{
+
+			if (level >= first)
+			{
+				/* check expression */
+				if (jsp)
+				{
+					res = recursiveExecute(jsp, vars, &v, NULL, found);
+					if (res == jperOk && !found)
+						break;
+				}
+				else
+				{
+					res = jperOk;
+					if (!found)
+						break;
+					*found = lappend(*found, copyJsonbValue(&v));
+				}
+			}
+
+			if (level < last && v.type == jbvBinary)
+			{
+				res = recursiveAny(jsp, vars, &v, found, level + 1, first, last);
+
+				if (res == jperOk && found == NULL)
+					break;
+			}
+		}
+	}
+
+	return res;
+}
+
+static JsonPathExecResult
+recursiveExecute(JsonPathItem *jsp, List *vars, JsonbValue *jb,
 				 JsonPathItem *jspLeftArg, List **found)
 {
 	JsonPathItem		elem;
@@ -920,6 +1012,35 @@ recursiveExecute(JsonPathItem *jsp, List *vars, JsonbValue *jb,
 			if (res == jperOk && found)
 				*found = lappend(*found, copyJsonbValue(jb));
 			break;
+		case jpiAny:
+		{
+			bool hasNext = jspGetNext(jsp, &elem);
+
+			/* first try without any intermediate steps */
+			if (jsp->anybounds.first == 0)
+			{
+				if (hasNext)
+				{
+					res = recursiveExecute(&elem, vars, jb, NULL, found);
+					if (res == jperOk && !found)
+						break;
+				}
+				else
+				{
+					res = jperOk;
+					if (!found)
+						break;
+					*found = lappend(*found, copyJsonbValue(jb));
+				}
+			}
+
+			if (jb->type == jbvBinary)
+				res = recursiveAny(hasNext ? &elem : NULL, vars, jb, found,
+								   1,
+								   jsp->anybounds.first,
+								   jsp->anybounds.last);
+			break;
+		}
 		default:
 			elog(ERROR,"Wrong state: %d", jsp->type);
 	}
@@ -1175,7 +1296,7 @@ JsonbPathQuery(Jsonb *jb, JsonPath *jp, JsonWrapper wrapper,
 			JsonbValue *jbv = (JsonbValue *) lfirst(lc);
 
 			if (jbv->type == jbvBinary &&
-			    JsonContainerIsScalar(jbv->val.binary.data))
+				JsonContainerIsScalar(jbv->val.binary.data))
 				JsonbExtractScalar(jbv->val.binary.data, jbv);
 
 			pushJsonbValue(&ps, WJB_ELEM, jbv);
