@@ -197,6 +197,7 @@ makeAny(int first, int last)
 %token	<str>		STRING_P NUMERIC_P INT_P
 
 %token	<str>		OR_P AND_P NOT_P
+%token 	<str>		LESS_P LESSEQUIAL_P EQUIAL_P NOTEQUIAL_P GREATEEQUIAL_P GREATE_P
 %token	<str>		ANY_P
 
 %type	<value>		result jsonpath scalar_value path_primary expr
@@ -248,12 +249,12 @@ jsonpath:
 	;
 
 comp_op:
-	'='								{ $$ = jpiEqual; }
-	| '<' '>'						{ $$ = jpiNotEqual; }
-	| '<'							{ $$ = jpiLess; }
-	| '>'							{ $$ = jpiGreater; }
-	| '<' '='						{ $$ = jpiLessOrEqual; }
-	| '>' '='						{ $$ = jpiGreaterOrEqual; }
+	EQUIAL_P						{ $$ = jpiEqual; }
+	| NOTEQUIAL_P					{ $$ = jpiNotEqual; }
+	| LESS_P						{ $$ = jpiLess; }
+	| GREATE_P						{ $$ = jpiGreater; }
+	| LESSEQUIAL_P					{ $$ = jpiLessOrEqual; }
+	| GREATEEQUIAL_P				{ $$ = jpiGreaterOrEqual; }
 	;
 
 delimited_predicate:

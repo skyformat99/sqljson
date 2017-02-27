@@ -78,6 +78,20 @@ unicode     \\u[0-9A-Fa-f]{4}
 
 <INITIAL>\*\*					{ return ANY_P; }
 
+<INITIAL>\<	  					{ return LESS_P; }
+
+<INITIAL>\<\=					{ return LESSEQUIAL_P; }
+
+<INITIAL>\=\=					{ return EQUIAL_P; }
+
+<INITIAL>\<\>					{ return NOTEQUIAL_P; }
+
+<INITIAL>\!\=					{ return NOTEQUIAL_P; }
+
+<INITIAL>\>\=					{ return GREATEEQUIAL_P; }
+
+<INITIAL>\>						{ return GREATE_P; }
+
 <INITIAL>{special}				{ return *yytext; }
 
 <INITIAL>{blank}+				{ /* ignore */ }

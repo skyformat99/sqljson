@@ -1143,18 +1143,18 @@ select '$.a.**{2,5}.b'::jsonpath;
 select '$.a.**{,5}.b'::jsonpath;
 select '$.a.**{5,}.b'::jsonpath;
 
-select '$.g ? (@ = 1)'::jsonpath;
-select '$.g ? (a = 1)'::jsonpath;
-select '$.g ? (.a = 1)'::jsonpath;
-select '$.g ? (@.a = 1)'::jsonpath;
-select '$.g ? (@.a = 1 || a = 4)'::jsonpath;
-select '$.g ? (@.a = 1 && a = 4)'::jsonpath;
-select '$.g ? (@.a = 1 || a = 4 && b = 7)'::jsonpath;
-select '$.g ? (@.a = 1 || !(a = 4) && b = 7)'::jsonpath;
-select '$.g ? (@.a = 1 || !(x >= 123 || a = 4) && b = 7)'::jsonpath;
+select '$.g ? (@ == 1)'::jsonpath;
+select '$.g ? (a == 1)'::jsonpath;
+select '$.g ? (.a == 1)'::jsonpath;
+select '$.g ? (@.a == 1)'::jsonpath;
+select '$.g ? (@.a == 1 || a == 4)'::jsonpath;
+select '$.g ? (@.a == 1 && a == 4)'::jsonpath;
+select '$.g ? (@.a == 1 || a == 4 && b == 7)'::jsonpath;
+select '$.g ? (@.a == 1 || !(a == 4) && b == 7)'::jsonpath;
+select '$.g ? (@.a == 1 || !(x >= 123 || a == 4) && b == 7)'::jsonpath;
 select '$.g ? (.x >= @[*]?(@.a > "abc"))'::jsonpath;
 
-select '$.g ? (zip = $zip)'::jsonpath;
+select '$.g ? (zip == $zip)'::jsonpath;
 select '$.a.[1,2, 3 to 16]'::jsonpath;
 select '$.a[1,2, 3 to 16]'::jsonpath;
 
@@ -1247,8 +1247,8 @@ select * from _jsonpath_object('$.a ? (@ < $value)', '{"a": 10}', '{"value" : 13
 select * from _jsonpath_object('$.[*] ? (@ < $value)', '[10,11,12,13,14,15]', '{"value" : 13}');
 select * from _jsonpath_object('$.[0,1] ? (@ < $value)', '[10,11,12,13,14,15]', '{"value" : 13}');
 select * from _jsonpath_object('$.[0 to 2] ? (@ < $value)', '[10,11,12,13,14,15]', '{"value" : 15}');
-select * from _jsonpath_object('$.[*] ? (@ = "1")', '[1,"1",2,"2",null]');
-select * from _jsonpath_object('$.[*] ? (@ = $value)', '[1,"1",2,"2",null]', '{"value" : "1"}');
+select * from _jsonpath_object('$.[*] ? (@ == "1")', '[1,"1",2,"2",null]');
+select * from _jsonpath_object('$.[*] ? (@ == $value)', '[1,"1",2,"2",null]', '{"value" : "1"}');
 
 select * from _jsonpath_object('$.**', '{"a": {"b": 1}}');
 select * from _jsonpath_object('$.**{1}', '{"a": {"b": 1}}');
