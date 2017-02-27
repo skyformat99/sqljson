@@ -167,7 +167,6 @@ unicode     \\u[0-9A-Fa-f]{4}
 									yylval->str = scanstring;
 									addchar(true, '\0');
 									BEGIN xCOMMENT;
-									return checkSpecialVal();
 								}
 
 
@@ -263,12 +262,13 @@ typedef struct keyword
  */
 
 static keyword keywords[] = {
-	{ 2, true,	IS_P,		"is"},
+	{ 2, false,	IS_P,		"is"},
 	{ 2, false,	TO_P,		"to"},
 	{ 4, true,	NULL_P,		"null"},
 	{ 4, true,	TRUE_P,		"true"},
 	{ 5, true,	FALSE_P,	"false"},
-	{ 7, true,	UNKNOWN_P,	"unknown"},
+	{ 6, false,	EXISTS_P,	"exists"},
+	{ 7, false,	UNKNOWN_P,	"unknown"}
 };
 
 static int

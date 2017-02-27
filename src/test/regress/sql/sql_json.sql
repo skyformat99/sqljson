@@ -1154,6 +1154,10 @@ select '$.g ? (@.a == 1 || !(a == 4) && b == 7)'::jsonpath;
 select '$.g ? (@.a == 1 || !(x >= 123 || a == 4) && b == 7)'::jsonpath;
 select '$.g ? (.x >= @[*]?(@.a > "abc"))'::jsonpath;
 select '$.g ? ((x >= 123 || a == 4) is unknown)'::jsonpath;
+select '$.g ? (exists (.x))'::jsonpath;
+select '$.g ? (exists (@.x ? (@ == 14)))'::jsonpath;
+select '$.g ? (exists (.x ? (@ == 14)))'::jsonpath;
+select '$.g ? ((x >= 123 || a == 4) && exists (.x ? (@ == 14)))'::jsonpath;
 
 select '$.g ? (zip == $zip)'::jsonpath;
 select '$.a.[1,2, 3 to 16]'::jsonpath;
@@ -1286,3 +1290,7 @@ select * from _jsonpath_exist('$.**{0,}.b ? ( @ > 0)', '{"a": {"c": {"b": 1}}}')
 select * from _jsonpath_exist('$.**{1,}.b ? ( @ > 0)', '{"a": {"c": {"b": 1}}}');
 select * from _jsonpath_exist('$.**{1,2}.b ? ( @ > 0)', '{"a": {"c": {"b": 1}}}');
 select * from _jsonpath_exist('$.**{2,3}.b ? ( @ > 0)', '{"a": {"c": {"b": 1}}}');
+
+select _jsonpath_object('$.g ? (exists (@.x))', '{"g": {"x": 2}}');
+select _jsonpath_object('$.g ? (exists (@.y))', '{"g": {"x": 2}}');
+select _jsonpath_object('$.g ? (exists (@.x ? (@ >= 2) ))', '{"g": {"x": 2}}');
