@@ -1002,19 +1002,27 @@ recursiveExecute(JsonPathItem *jsp, List *vars, JsonbValue *jb,
 		case jpiAnd:
 			jspGetLeftArg(jsp, &elem);
 			res = recursiveExecute(&elem, vars, jb, jspLeftArg, NULL);
-			if (res == jperOk)
+			if (res != jperNotFound)
 			{
+				JsonPathExecResult res2;
+
 				jspGetRightArg(jsp, &elem);
-				res = recursiveExecute(&elem, vars, jb, jspLeftArg, NULL);
+				res2 = recursiveExecute(&elem, vars, jb, jspLeftArg, NULL);
+
+				res = res2 == jperOk ? res : res2;
 			}
 			break;
 		case jpiOr:
 			jspGetLeftArg(jsp, &elem);
 			res = recursiveExecute(&elem, vars, jb, jspLeftArg, NULL);
-			if (res == jperNotFound)
+			if (res != jperOk)
 			{
+				JsonPathExecResult res2;
+
 				jspGetRightArg(jsp, &elem);
-				res = recursiveExecute(&elem, vars, jb, jspLeftArg, NULL);
+				res2 = recursiveExecute(&elem, vars, jb, jspLeftArg, NULL);
+
+				res = res2 == jperNotFound ? res : res2;
 			}
 			break;
 		case jpiNot:
@@ -1033,15 +1041,8 @@ recursiveExecute(JsonPathItem *jsp, List *vars, JsonbValue *jb,
 			break;
 		case jpiIsUnknown:
 			jspGetArg(jsp, &elem);
-			switch ((res = recursiveExecute(&elem, vars, jb, jspLeftArg, NULL)))
-			{
-				case jperError:
-					res = jperOk;
-					break;
-				default:
-					res = jperNotFound;
-					break;
-			}
+			res = recursiveExecute(&elem, vars, jb, jspLeftArg, NULL);
+			res = res == jperError ? jperOk : jperNotFound;
 			break;
 		case jpiKey:
 			if (JsonbType(jb) == jbvObject)
