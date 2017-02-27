@@ -2757,9 +2757,9 @@ select '$.g ? (a = 1)'::jsonpath;
 (1 row)
 
 select '$.g ? (.a = 1)'::jsonpath;
-    jsonpath     
------------------
- $."g"?("a" = 1)
+     jsonpath      
+-------------------
+ $."g"?(@."a" = 1)
 (1 row)
 
 select '$.g ? (@.a = 1)'::jsonpath;
@@ -2769,33 +2769,39 @@ select '$.g ? (@.a = 1)'::jsonpath;
 (1 row)
 
 select '$.g ? (@.a = 1 || a = 4)'::jsonpath;
-            jsonpath            
---------------------------------
- $."g"?((@."a" = 1 || "a" = 4))
+           jsonpath           
+------------------------------
+ $."g"?(@."a" = 1 || "a" = 4)
 (1 row)
 
 select '$.g ? (@.a = 1 && a = 4)'::jsonpath;
-            jsonpath            
---------------------------------
- $."g"?((@."a" = 1 && "a" = 4))
+           jsonpath           
+------------------------------
+ $."g"?(@."a" = 1 && "a" = 4)
 (1 row)
 
 select '$.g ? (@.a = 1 || a = 4 && b = 7)'::jsonpath;
-                  jsonpath                   
----------------------------------------------
- $."g"?((@."a" = 1 || ("a" = 4 && "b" = 7)))
+                jsonpath                 
+-----------------------------------------
+ $."g"?(@."a" = 1 || "a" = 4 && "b" = 7)
 (1 row)
 
-select '$.g ? (@.a = 1 || !a = 4 && b = 7)'::jsonpath;
-                    jsonpath                    
-------------------------------------------------
- $."g"?((@."a" = 1 || ((!"a" = 4) && "b" = 7)))
+select '$.g ? (@.a = 1 || !(a = 4) && b = 7)'::jsonpath;
+                  jsonpath                  
+--------------------------------------------
+ $."g"?(@."a" = 1 || !("a" = 4) && "b" = 7)
 (1 row)
 
 select '$.g ? (@.a = 1 || !(x >= 123 || a = 4) && b = 7)'::jsonpath;
-                            jsonpath                            
-----------------------------------------------------------------
- $."g"?((@."a" = 1 || ((!("x" >= 123 || "a" = 4)) && "b" = 7)))
+                         jsonpath                         
+----------------------------------------------------------
+ $."g"?(@."a" = 1 || !("x" >= 123 || "a" = 4) && "b" = 7)
+(1 row)
+
+select '$.g ? (.x >= @[*]?(@.a > "abc"))'::jsonpath;
+                jsonpath                
+----------------------------------------
+ $."g"?(@."x" >= @.[*]?(@."a" > "abc"))
 (1 row)
 
 select '$.g ? (zip = $zip)'::jsonpath;
@@ -3188,6 +3194,30 @@ select _jsonpath_exist('$.[0]', '[1]');
  t
 (1 row)
 
+select _jsonpath_exist('$ ? (@.a[*] >  @.b[*])', '{"a": [1,2,3], "b": [3,4,5]}');
+ _jsonpath_exist 
+-----------------
+ f
+(1 row)
+
+select _jsonpath_exist('$ ? (@.a[*] >= @.b[*])', '{"a": [1,2,3], "b": [3,4,5]}');
+ _jsonpath_exist 
+-----------------
+ t
+(1 row)
+
+select _jsonpath_exist('$ ? (@.a[*] >= @.b[*])', '{"a": [1,2,3], "b": [3,4,"5"]}');
+ _jsonpath_exist 
+-----------------
+ f
+(1 row)
+
+select _jsonpath_exist('$ ? (@.a[*] >= @.b[*])', '{"a": [1,2,3], "b": [3,4,null]}');
+ _jsonpath_exist 
+-----------------
+ t
+(1 row)
+
 select * from _jsonpath_object('$.a', '{"a": 12, "b": {"a": 13}}');
  _jsonpath_object 
 ------------------
@@ -3260,15 +3290,15 @@ select * from _jsonpath_object('$', '{"a": 10}');
  {"a": 10}
 (1 row)
 
-select * from _jsonpath_object('$ ? (a < $value)', '{"a": 10}');
+select * from _jsonpath_object('$ ? (.a < $value)', '{"a": 10}');
 ERROR:  could not find 'value' passed variable
-select * from _jsonpath_object('$ ? (a < $value)', '{"a": 10}', '{"value" : 13}');
+select * from _jsonpath_object('$ ? (.a < $value)', '{"a": 10}', '{"value" : 13}');
  _jsonpath_object 
 ------------------
  {"a": 10}
 (1 row)
 
-select * from _jsonpath_object('$ ? (a < $value)', '{"a": 10}', '{"value" : 8}');
+select * from _jsonpath_object('$ ? (.a < $value)', '{"a": 10}', '{"value" : 8}');
  _jsonpath_object 
 ------------------
 (0 rows)

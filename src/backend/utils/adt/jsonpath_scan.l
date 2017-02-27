@@ -76,6 +76,8 @@ unicode     \\u[0-9A-Fa-f]{4}
 
 <INITIAL>\!						{ return NOT_P; }
 
+<INITIAL>\*\*					{ return ANY_P; }
+
 <INITIAL>{special}				{ return *yytext; }
 
 <INITIAL>{blank}+				{ /* ignore */ }
