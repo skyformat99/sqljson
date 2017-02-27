@@ -293,6 +293,12 @@ printJsonPathItem(StringInfo buf, JsonPathItem *v, bool inKey, bool printBracket
 			printJsonPathItem(buf, &elem, false, false);
 			appendStringInfoChar(buf, ')');
 			break;
+		case jpiIsUnknown:
+			appendStringInfoChar(buf, '(');
+			jspGetArg(v, &elem);
+			printJsonPathItem(buf, &elem, false, false);
+			appendBinaryStringInfo(buf, ") is unknown", 12);
+			break;
 		case jpiCurrent:
 			Assert(!inKey);
 			appendStringInfoChar(buf, '@');
@@ -996,6 +1002,18 @@ recursiveExecute(JsonPathItem *jsp, List *vars, JsonbValue *jb,
 					res = jperOk;
 					break;
 				default:
+					break;
+			}
+			break;
+		case jpiIsUnknown:
+			jspGetArg(jsp, &elem);
+			switch ((res = recursiveExecute(&elem, vars, jb, jspLeftArg, NULL)))
+			{
+				case jperError:
+					res = jperOk;
+					break;
+				default:
+					res = jperNotFound;
 					break;
 			}
 			break;

@@ -2786,6 +2786,12 @@ select '$.g ? (.x >= @[*]?(@.a > "abc"))'::jsonpath;
  $."g"?(@."x" >= @.[*]?(@."a" > "abc"))
 (1 row)
 
+select '$.g ? ((x >= 123 || a == 4) is unknown)'::jsonpath;
+                  jsonpath                   
+---------------------------------------------
+ $."g"?(("x" >= 123 || "a" == 4) is unknown)
+(1 row)
+
 select '$.g ? (zip == $zip)'::jsonpath;
         jsonpath         
 -------------------------
@@ -3198,6 +3204,18 @@ select _jsonpath_exist('$ ? (@.a[*] >= @.b[*])', '{"a": [1,2,3], "b": [3,4,null]
  _jsonpath_exist 
 -----------------
  t
+(1 row)
+
+select _jsonpath_exist('$ ? ((@ == "1") is unknown)', '1');
+ _jsonpath_exist 
+-----------------
+ t
+(1 row)
+
+select _jsonpath_exist('$ ? ((@ == 1) is unknown)', '1');
+ _jsonpath_exist 
+-----------------
+ f
 (1 row)
 
 select * from _jsonpath_object('$.a', '{"a": 12, "b": {"a": 13}}');
