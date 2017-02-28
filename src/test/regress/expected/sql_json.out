@@ -3696,6 +3696,30 @@ select _jsonpath_exists('{"c": {"a": 0, "b":1}}', '$.** ? (.a == 1 - +.b)');
  t
 (1 row)
 
+select _jsonpath_exists('[1,2,3]', '$ ? (+@[*] > +2)');
+ _jsonpath_exists 
+------------------
+ t
+(1 row)
+
+select _jsonpath_exists('[1,2,3]', '$ ? (+@[*] > +3)');
+ _jsonpath_exists 
+------------------
+ f
+(1 row)
+
+select _jsonpath_exists('[1,2,3]', '$ ? (-@[*] < -2)');
+ _jsonpath_exists 
+------------------
+ t
+(1 row)
+
+select _jsonpath_exists('[1,2,3]', '$ ? (-@[*] < -3)');
+ _jsonpath_exists 
+------------------
+ f
+(1 row)
+
 --test ternary logic
 select
 	x, y,
