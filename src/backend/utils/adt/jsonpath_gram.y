@@ -187,7 +187,7 @@ makeAny(int first, int last)
 %parse-param {JsonPathParseResult **result}
 
 %union {
-	string 				str;
+	string				str;
 	List				*elems;		/* list of JsonPathParseItem */
 	List				*indexs;	/* list of integers */
 	JsonPathParseItem	*value;
@@ -200,7 +200,7 @@ makeAny(int first, int last)
 %token	<str>		STRING_P NUMERIC_P INT_P EXISTS_P STRICT_P LAX_P
 
 %token	<str>		OR_P AND_P NOT_P
-%token 	<str>		LESS_P LESSEQUIAL_P EQUIAL_P NOTEQUIAL_P GREATEEQUIAL_P GREATE_P
+%token	<str>		LESS_P LESSEQUIAL_P EQUIAL_P NOTEQUIAL_P GREATEEQUIAL_P GREATE_P
 %token	<str>		ANY_P
 
 %type	<result>	result
@@ -217,8 +217,8 @@ makeAny(int first, int last)
 %type	<boolean>	mode
 
 %left	OR_P
-%left 	AND_P
-%right 	NOT_P
+%left	AND_P
+%right	NOT_P
 %left	'+' '-'
 %left	'*' '/' '%'
 %left	UMINUS
@@ -271,7 +271,7 @@ predicate:
 	| pexpr comp_op pexpr			{ $$ = makeItemBinary($2, $1, $3); }
 	| predicate AND_P predicate		{ $$ = makeItemBinary(jpiAnd, $1, $3); }
 	| predicate OR_P predicate		{ $$ = makeItemBinary(jpiOr, $1, $3); }
-	| NOT_P delimited_predicate 	{ $$ = makeItemUnary(jpiNot, $2); }
+	| NOT_P delimited_predicate		{ $$ = makeItemUnary(jpiNot, $2); }
 	| '(' predicate ')' IS_P UNKNOWN_P	{ $$ = makeItemUnary(jpiIsUnknown, $2); }
 /*
    Left for the future

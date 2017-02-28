@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * jsonpath_scan.l
- *     Lexical parser for jsonpath datatype
+ *	Lexical parser for jsonpath datatype
  *
  * Copyright (c) 2017, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
- *    src/backend/utils/adt/jsonpath_scan.l
+ *	src/backend/utils/adt/jsonpath_scan.l
  *
  *-------------------------------------------------------------------------
  */
@@ -40,7 +40,7 @@ static void parseUnicode(char *s, int l);
 static void
 fprintf_to_ereport(const char *fmt, const char *msg)
 {
-    ereport(ERROR, (errmsg_internal("%s", msg)));
+	ereport(ERROR, (errmsg_internal("%s", msg)));
 }
 
 #define yyerror jsonpath_yyerror
@@ -66,7 +66,7 @@ fprintf_to_ereport(const char *fmt, const char *msg)
 special		 [\?\%\$\.\[\]\{\}\(\)\|\&\!\=\<\>\@\#\,\*:\-\+\/]
 any			[^\?\%\$\.\[\]\{\}\(\)\|\&\!\=\<\>\@\#\,\*:\-\+\/\\\" \t\n\r\f]
 blank		[ \t\n\r\f]
-unicode     \\u[0-9A-Fa-f]{4}
+unicode		\\u[0-9A-Fa-f]{4}
 
 %%
 
@@ -78,7 +78,7 @@ unicode     \\u[0-9A-Fa-f]{4}
 
 <INITIAL>\*\*					{ return ANY_P; }
 
-<INITIAL>\<	  					{ return LESS_P; }
+<INITIAL>\<						{ return LESS_P; }
 
 <INITIAL>\<\=					{ return LESSEQUIAL_P; }
 
@@ -96,7 +96,7 @@ unicode     \\u[0-9A-Fa-f]{4}
 
 <INITIAL>{blank}+				{ /* ignore */ }
 
-<INITIAL>\/\*					{ 
+<INITIAL>\/\*					{
 									addchar(true, '\0');
 									BEGIN xCOMMENT;
 								}
@@ -122,14 +122,14 @@ unicode     \\u[0-9A-Fa-f]{4}
 									return NUMERIC_P;
 								}
 
-<INITIAL>[+-][0-9]+ 			{
+<INITIAL>[+-][0-9]+				{
 									addstring(true, yytext, yyleng);
 									addchar(false, '\0');
 									yylval->str = scanstring;
 									return NUMERIC_P;
 								}
 
-<INITIAL>[0-9]+ 				{
+<INITIAL>[0-9]+					{
 									addstring(true, yytext, yyleng);
 									addchar(false, '\0');
 									yylval->str = scanstring;
@@ -140,8 +140,8 @@ unicode     \\u[0-9A-Fa-f]{4}
 									addstring(true, yytext, yyleng);
 									BEGIN xNONQUOTED;
 								}
-									
-<INITIAL>\" 					{
+
+<INITIAL>\"						{
 									addchar(true, '\0');
 									BEGIN xQUOTED;
 								}
@@ -152,11 +152,11 @@ unicode     \\u[0-9A-Fa-f]{4}
 									BEGIN xNONQUOTED;
 								}
 
-<xNONQUOTED>{any}+				{ 
-									addstring(false, yytext, yyleng); 
+<xNONQUOTED>{any}+				{
+									addstring(false, yytext, yyleng);
 								}
 
-<xNONQUOTED>{blank}+			{ 
+<xNONQUOTED>{blank}+			{
 									yylval->str = scanstring;
 									BEGIN INITIAL;
 									return checkSpecialVal();
@@ -170,7 +170,7 @@ unicode     \\u[0-9A-Fa-f]{4}
 								}
 
 
-<xNONQUOTED,INITIAL>\/ 			{ addchar(false, '/'); }
+<xNONQUOTED,INITIAL>\/			{ addchar(false, '/'); }
 
 <xNONQUOTED>({special}|\")		{
 									yylval->str = scanstring;
@@ -179,7 +179,7 @@ unicode     \\u[0-9A-Fa-f]{4}
 									return checkSpecialVal();
 								}
 
-<xNONQUOTED><<EOF>>				{ 
+<xNONQUOTED><<EOF>>				{
 									yylval->str = scanstring;
 									BEGIN INITIAL;
 									return checkSpecialVal();
@@ -187,23 +187,23 @@ unicode     \\u[0-9A-Fa-f]{4}
 
 <xNONQUOTED,xQUOTED>\\[\"\\]	{ addchar(false, yytext[1]); }
 
-<xNONQUOTED,xQUOTED>\\b 		{ addchar(false, '\b'); }
+<xNONQUOTED,xQUOTED>\\b			{ addchar(false, '\b'); }
 
-<xNONQUOTED,xQUOTED>\\f 		{ addchar(false, '\f'); }
+<xNONQUOTED,xQUOTED>\\f			{ addchar(false, '\f'); }
 
-<xNONQUOTED,xQUOTED>\\n 		{ addchar(false, '\n'); }
+<xNONQUOTED,xQUOTED>\\n			{ addchar(false, '\n'); }
 
-<xNONQUOTED,xQUOTED>\\r 		{ addchar(false, '\r'); }
+<xNONQUOTED,xQUOTED>\\r			{ addchar(false, '\r'); }
 
-<xNONQUOTED,xQUOTED>\\t 		{ addchar(false, '\t'); }
+<xNONQUOTED,xQUOTED>\\t			{ addchar(false, '\t'); }
 
 <xNONQUOTED,xQUOTED>{unicode}+	{ parseUnicode(yytext, yyleng); }
 
-<xNONQUOTED,xQUOTED>\\u 		{ yyerror(NULL, "Unicode sequence is invalid"); }
+<xNONQUOTED,xQUOTED>\\u			{ yyerror(NULL, "Unicode sequence is invalid"); }
 
-<xNONQUOTED,xQUOTED>\\. 		{ yyerror(NULL, "Escape sequence is invalid"); }
+<xNONQUOTED,xQUOTED>\\.			{ yyerror(NULL, "Escape sequence is invalid"); }
 
-<xNONQUOTED,xQUOTED>\\ 			{ yyerror(NULL, "Unexpected end after backslesh"); }
+<xNONQUOTED,xQUOTED>\\			{ yyerror(NULL, "Unexpected end after backslesh"); }
 
 <xQUOTED><<EOF>>				{ yyerror(NULL, "Unexpected end of quoted string"); }
 
@@ -213,7 +213,7 @@ unicode     \\u[0-9A-Fa-f]{4}
 									return STRING_P;
 								}
 
-<xQUOTED>[^\\\"]+   			{ addstring(false, yytext, yyleng); }
+<xQUOTED>[^\\\"]+				{ addstring(false, yytext, yyleng); }
 
 <INITIAL><<EOF>>				{ yyterminate(); }
 
@@ -276,7 +276,7 @@ static keyword keywords[] = {
 static int
 checkSpecialVal()
 {
-	int 		res = STRING_P;
+	int			res = STRING_P;
 	int			diff;
 	keyword		*StopLow = keywords,
 				*StopHigh = keywords + lengthof(keywords),
