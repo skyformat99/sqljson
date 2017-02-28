@@ -31,6 +31,10 @@ static JsonPathExecResult recursiveExecute(JsonPathExecContext *cxt,
 										   JsonPathItem *jsp, JsonbValue *jb,
 										   List **found);
 
+static JsonPathExecResult recursiveExecuteUnwrap(JsonPathExecContext *cxt,
+							JsonPathItem *jsp, JsonbValue *jb, List **found);
+
+
 /*****************************INPUT/OUTPUT************************************/
 
 /*
@@ -176,8 +180,8 @@ jsonpath_in(PG_FUNCTION_ARGS)
 {
 	char				*in = PG_GETARG_CSTRING(0);
 	int32				len = strlen(in);
-	JsonPathParseItem	*jsonpath = parsejsonpath(in, len);
-	JsonPath				*res;
+	JsonPathParseResult	*jsonpath = parsejsonpath(in, len);
+	JsonPath			*res;
 	StringInfoData		buf;
 
 	initStringInfo(&buf);
@@ -187,11 +191,13 @@ jsonpath_in(PG_FUNCTION_ARGS)
 
 	if (jsonpath != NULL)
 	{
-		flattenJsonPathParseItem(&buf, jsonpath, false);
+		flattenJsonPathParseItem(&buf, jsonpath->expr, false);
 
 		res = (JsonPath*)buf.data;
 		SET_VARSIZE(res, buf.len);
 		res->header = JSONPATH_VERSION;
+		if (jsonpath->lax)
+			res->header |= JSONPATH_LAX;
 
 		PG_RETURN_JSONPATH(res);
 	}
@@ -415,6 +421,9 @@ jsonpath_out(PG_FUNCTION_ARGS)
 	initStringInfo(&buf);
 	enlargeStringInfo(&buf, VARSIZE(in) /* estimation */);
 
+	if (in->header & JSONPATH_LAX)
+		appendBinaryStringInfo(&buf, "lax ", 4);
+
 	jspInit(&v, in);
 	printJsonPathItem(&buf, &v, false, true);
 
@@ -448,7 +457,7 @@ jsonpath_out(PG_FUNCTION_ARGS)
 void
 jspInit(JsonPathItem *v, JsonPath *js)
 {
-	Assert(js->header == JSONPATH_VERSION);
+	Assert((js->header & ~JSONPATH_LAX) == JSONPATH_VERSION);
 	jspInitByBuffer(v, js->data, 0);
 }
 
@@ -897,14 +906,14 @@ executeExpr(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb)
 	bool		found = false;
 
 	jspGetLeftArg(jsp, &elem);
-	res = recursiveExecute(cxt, &elem, jb, &lseq);
-	if (res != jperOk)
-		return res;
+	res = recursiveExecuteUnwrap(cxt, &elem, jb, &lseq);
+	if (jperIsError(res))
+		return jperError;
 
 	jspGetRightArg(jsp, &elem);
-	res = recursiveExecute(cxt, &elem, jb, &rseq);
-	if (res != jperOk)
-		return res;
+	res = recursiveExecuteUnwrap(cxt, &elem, jb, &rseq);
+	if (jperIsError(res))
+		return jperError;
 
 	foreach(llc, lseq)
 	{
@@ -952,7 +961,7 @@ executeExpr(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb)
 	if (found) /* possible only in strict mode */
 		return jperOk;
 
-	if (error) /* possible only in non-strict mode */
+	if (error) /* possible only in lax mode */
 		return jperError;
 
 	return jperNotFound;
@@ -985,7 +994,7 @@ executeBinaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
 	}
 
 	if (jper != jperOk || list_length(lseq) != 1 || list_length(rseq) != 1)
-		return jperError; /* ERRCODE_SINGLETON_JSON_ITEM_REQUIRED; */
+		return jperMakeError(ERRCODE_SINGLETON_JSON_ITEM_REQUIRED);
 
 	lval = linitial(lseq);
 
@@ -993,7 +1002,7 @@ executeBinaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
 		lval = JsonbExtractScalar(lval->val.binary.data, &lvalbuf);
 
 	if (lval->type != jbvNumeric)
-		return jperError; /* ERRCODE_SINGLETON_JSON_ITEM_REQUIRED; */
+		return jperMakeError(ERRCODE_SINGLETON_JSON_ITEM_REQUIRED);
 
 	rval = linitial(rseq);
 
@@ -1001,7 +1010,7 @@ executeBinaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
 		rval = JsonbExtractScalar(rval->val.binary.data, &rvalbuf);
 
 	if (rval->type != jbvNumeric)
-		return jperError; /* ERRCODE_SINGLETON_JSON_ITEM_REQUIRED; */
+		return jperMakeError(ERRCODE_SINGLETON_JSON_ITEM_REQUIRED);
 
 	if (!found)
 		return jperOk;
@@ -1061,8 +1070,8 @@ executeUnaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
 	jspGetArg(jsp, &elem);
 	jper = recursiveExecute(cxt, &elem, jb, &seq);
 
-	if (jper == jperError)
-		return jperError; /* ERRCODE_JSON_NUMBER_NOT_FOUND; */
+	if (jperIsError(jper))
+		return jperMakeError(ERRCODE_JSON_NUMBER_NOT_FOUND);
 
 	jper = jperNotFound;
 
@@ -1085,7 +1094,7 @@ executeUnaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
 			continue; /* skip non-numerics processing */
 
 		if (val->type != jbvNumeric)
-			return jperError; /* ERRCODE_JSON_NUMBER_NOT_FOUND; */
+			return jperMakeError(ERRCODE_JSON_NUMBER_NOT_FOUND);
 
 		val = copyJsonbValue(val);
 
@@ -1183,8 +1192,8 @@ recursiveAny(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
  * results
  */
 static JsonPathExecResult
-recursiveExecute(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
-				 List **found)
+recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
+						 JsonbValue *jb, List **found)
 {
 	JsonPathItem		elem;
 	JsonPathExecResult	res = jperNotFound;
@@ -1226,7 +1235,7 @@ recursiveExecute(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
 			break;
 		case jpiNot:
 			jspGetArg(jsp, &elem);
-			switch((res = recursiveExecute(cxt, &elem, jb, NULL)))
+			switch ((res = recursiveExecute(cxt, &elem, jb, NULL)))
 			{
 				case jperOk:
 					res = jperNotFound;
@@ -1241,7 +1250,7 @@ recursiveExecute(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
 		case jpiIsUnknown:
 			jspGetArg(jsp, &elem);
 			res = recursiveExecute(cxt, &elem, jb, NULL);
-			res = (res == jperError) ? jperOk : jperNotFound;
+			res = jperIsError(res) ? jperOk : jperNotFound;
 			break;
 		case jpiKey:
 			if (JsonbType(jb) == jbvObject)
@@ -1269,7 +1278,11 @@ recursiveExecute(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
 							pfree(v);
 					}
 				}
+				else if (!cxt->lax && found)
+					res = jperMakeError(ERRCODE_JSON_MEMBER_NOT_FOUND);
 			}
+			else if (!cxt->lax && found)
+				res = jperMakeError(ERRCODE_JSON_MEMBER_NOT_FOUND);
 			break;
 		case jpiCurrent:
 			if (!jspGetNext(jsp, &elem))
@@ -1320,7 +1333,7 @@ recursiveExecute(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
 						{
 							res = recursiveExecute(cxt, &elem, &v, found);
 
-							if (res == jperError)
+							if (jperIsError(res))
 								break;
 
 							if (res == jperOk && found == NULL)
@@ -1338,6 +1351,8 @@ recursiveExecute(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
 					}
 				}
 			}
+			else if (found)
+				res = jperMakeError(ERRCODE_JSON_ARRAY_NOT_FOUND);
 			break;
 
 		case jpiIndexArray:
@@ -1350,6 +1365,7 @@ recursiveExecute(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
 
 				for(i=0; i<jsp->content.array.nelems; i++)
 				{
+					/* FIXME array index can be expression */
 					v = getIthJsonbValueFromContainer(jb->val.binary.data,
 													  jsp->content.array.elems[i]);
 
@@ -1360,7 +1376,7 @@ recursiveExecute(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
 					{
 						res = recursiveExecute(cxt, &elem, v, found);
 
-						if (res == jperError || found == NULL)
+						if (jperIsError(res) || found == NULL)
 							break;
 
 						if (res == jperOk && found == NULL)
@@ -1377,6 +1393,8 @@ recursiveExecute(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
 					}
 				}
 			}
+			else if (found)
+				res = jperMakeError(ERRCODE_JSON_ARRAY_NOT_FOUND);
 			break;
 		case jpiAnyKey:
 			if (JsonbType(jb) == jbvObject)
@@ -1396,7 +1414,7 @@ recursiveExecute(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
 						{
 							res = recursiveExecute(cxt, &elem, &v, found);
 
-							if (res == jperError)
+							if (jperIsError(res))
 								break;
 
 							if (res == jperOk && found == NULL)
@@ -1414,6 +1432,8 @@ recursiveExecute(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
 					}
 				}
 			}
+			else if (!cxt->lax && found)
+				res = jperMakeError(ERRCODE_JSON_OBJECT_NOT_FOUND);
 			break;
 		case jpiEqual:
 		case jpiNotEqual:
@@ -1510,6 +1530,97 @@ recursiveExecute(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
 	return res;
 }
 
+static JsonPathExecResult
+recursiveExecuteUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
+					   JsonbValue *jb, List **found)
+{
+	if (cxt->lax && JsonbType(jb) == jbvArray)
+	{
+		JsonbValue	v;
+		JsonbIterator *it;
+		JsonbIteratorToken tok;
+		JsonPathExecResult res = jperNotFound;
+
+		it = JsonbIteratorInit(jb->val.binary.data);
+
+		while ((tok = JsonbIteratorNext(&it, &v, true)) != WJB_DONE)
+		{
+			if (tok == WJB_ELEM)
+			{
+				res = recursiveExecuteNoUnwrap(cxt, jsp, &v, found);
+				if (jperIsError(res))
+					break;
+				if (res == jperOk && !found)
+					break;
+			}
+		}
+
+		return res;
+	}
+
+	return recursiveExecuteNoUnwrap(cxt, jsp, jb, found);
+}
+
+static JsonbValue *
+wrapItem(JsonbValue *jbv)
+{
+	JsonbParseState *ps = NULL;
+	Jsonb	   *jb;
+	JsonbValue	jbvbuf;
+	int			type = JsonbType(jbv);
+
+	if (type == jbvArray)
+		return jbv;
+
+	if (type == jbvScalar)
+		jbv = JsonbExtractScalar(jbv->val.binary.data, &jbvbuf);
+
+	pushJsonbValue(&ps, WJB_BEGIN_ARRAY, NULL);
+	pushJsonbValue(&ps, WJB_ELEM, jbv);
+	jbv = pushJsonbValue(&ps, WJB_END_ARRAY, NULL);
+
+	jb = JsonbValueToJsonb(jbv);
+
+	jbv = palloc(sizeof(*jbv));
+	jbv->type = jbvBinary;
+	jbv->val.binary.data = &jb->root;
+	jbv->val.binary.len = VARSIZE(jb) - VARHDRSZ;
+
+	return jbv;
+}
+
+static JsonPathExecResult
+recursiveExecute(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
+				 List **found)
+{
+	check_stack_depth();
+
+	if (cxt->lax)
+	{
+		switch (jsp->type)
+		{
+			case jpiKey:
+			case jpiAnyKey:
+		/*	case jpiAny: */
+			case jpiFilter:
+		/*	case jpiMethod: excluding type() and size() */
+			case jpiPlus:
+			case jpiMinus:
+				return recursiveExecuteUnwrap(cxt, jsp, jb, found);
+
+			case jpiAnyArray:
+			case jpiIndexArray:
+				jb = wrapItem(jb);
+				break;
+
+			default:
+				break;
+		}
+	}
+
+	return recursiveExecuteNoUnwrap(cxt, jsp, jb, found);
+}
+
 /*
  * Public interface to jsonpath executor
  */
@@ -1520,14 +1631,14 @@ executeJsonPath(JsonPath *path, List *vars, Jsonb *json, List **foundJson)
 	JsonPathItem	jsp;
 	JsonbValue		jbv;
 
-	cxt.vars = vars;
-	cxt.lax = false; /* FIXME */
-
 	jbv.type = jbvBinary;
 	jbv.val.binary.data = &json->root;
 	jbv.val.binary.len = VARSIZE_ANY_EXHDR(json);
 
 	jspInit(&jsp, path);
+
+	cxt.vars = vars;
+	cxt.lax = (path->header & JSONPATH_LAX) != 0;
 
 	return recursiveExecute(&cxt, &jsp, &jbv, foundJson);
 }
@@ -1612,6 +1723,47 @@ makePassingVars(Jsonb *jb)
 	return vars;
 }
 
+static void
+throwJsonPathError(JsonPathExecResult res)
+{
+	if (!jperIsError(res))
+		return;
+
+	switch (jperGetError(res))
+	{
+		case ERRCODE_JSON_ARRAY_NOT_FOUND:
+			ereport(ERROR,
+					(errcode(jperGetError(res)),
+					 errmsg("SQL/JSON array not found")));
+			break;
+		case ERRCODE_JSON_OBJECT_NOT_FOUND:
+			ereport(ERROR,
+					(errcode(jperGetError(res)),
+					 errmsg("SQL/JSON object not found")));
+			break;
+		case ERRCODE_JSON_MEMBER_NOT_FOUND:
+			ereport(ERROR,
+					(errcode(jperGetError(res)),
+					 errmsg("SQL/JSON member not found")));
+			break;
+		case ERRCODE_JSON_NUMBER_NOT_FOUND:
+			ereport(ERROR,
+					(errcode(jperGetError(res)),
+					 errmsg("SQL/JSON number not found")));
+			break;
+		case ERRCODE_JSON_SCALAR_REQUIRED:
+			ereport(ERROR,
+					(errcode(jperGetError(res)),
+					 errmsg("SQL/JSON scalar required")));
+			break;
+		default :
+			ereport(ERROR,
+					(errcode(jperGetError(res)),
+					 errmsg("Unknown SQL/JSON error")));
+			break;
+	}
+}
+
 static Datum
 __jsonpath_exists(PG_FUNCTION_ARGS)
 {
@@ -1628,8 +1780,7 @@ __jsonpath_exists(PG_FUNCTION_ARGS)
 	PG_FREE_IF_COPY(jb, 0);
 	PG_FREE_IF_COPY(jp, 1);
 
-	if (res == jperError)
-		elog(ERROR, "Something wrong");
+	throwJsonPathError(res);
 
 	PG_RETURN_BOOL(res == jperOk);
 }
@@ -1647,7 +1798,7 @@ _jsonpath_exists3(PG_FUNCTION_ARGS)
 }
 
 static Datum
-__jsonpath_object(PG_FUNCTION_ARGS)
+__jsonpath_object(FunctionCallInfo fcinfo, bool safe)
 {
 	FuncCallContext	*funcctx;
 	List			*found = NIL;
@@ -1671,8 +1822,13 @@ __jsonpath_object(PG_FUNCTION_ARGS)
 
 		res = executeJsonPath(jp, vars, jb, &found);
 
-		if (res == jperError)
-			elog(ERROR, "Something wrong");
+		if (jperIsError(res))
+		{
+			if (safe)
+				found = NIL;
+			else
+				throwJsonPathError(res);
+		}
 
 		PG_FREE_IF_COPY(jp, 1);
 
@@ -1699,13 +1855,25 @@ __jsonpath_object(PG_FUNCTION_ARGS)
 Datum
 _jsonpath_object2(PG_FUNCTION_ARGS)
 {
-	return __jsonpath_object(fcinfo);
+	return __jsonpath_object(fcinfo, false);
 }
 
 Datum
 _jsonpath_object3(PG_FUNCTION_ARGS)
 {
-	return __jsonpath_object(fcinfo);
+	return __jsonpath_object(fcinfo, false);
+}
+
+Datum
+_jsonpath_object_safe2(PG_FUNCTION_ARGS)
+{
+	return __jsonpath_object(fcinfo, true);
+}
+
+Datum
+_jsonpath_object_safe3(PG_FUNCTION_ARGS)
+{
+	return __jsonpath_object(fcinfo, true);
 }
 
 /********************Interface to pgsql's executor***************************/
@@ -1714,10 +1882,7 @@ JsonbPathExists(Jsonb *jb, JsonPath *jp, List *vars)
 {
 	JsonPathExecResult res = executeJsonPath(jp, vars, jb, NULL);
 
-	if (res == jperError)
-		ereport(ERROR,
-				(errcode(ERRCODE_NO_JSON_ITEM), /* FIXME */
-				 errmsg("JSON path error")));
+	throwJsonPathError(res);
 
 	return res == jperOk;
 }
@@ -1732,10 +1897,7 @@ JsonbPathQuery(Jsonb *jb, JsonPath *jp, JsonWrapper wrapper,
 	List	   *found = NIL;
 	JsonPathExecResult jper = executeJsonPath(jp, vars, jb, &found);
 
-	if (jper == jperError)
-		ereport(ERROR,
-				(errcode(ERRCODE_NO_JSON_ITEM), /* FIXME */
-				 errmsg("JSON path error")));
+	throwJsonPathError(jper);
 
 	first = found ? linitial(found) : NULL;
 
@@ -1803,10 +1965,7 @@ JsonbPathValue(Jsonb *jb, JsonPath *jp, bool *empty, List *vars)
 	List	   *found = NIL;
 	JsonPathExecResult jper = executeJsonPath(jp, vars, jb, &found);
 
-	if (jper == jperError)
-		ereport(ERROR,
-				(errcode(ERRCODE_NO_JSON_ITEM), /* FIXME */
-				 errmsg("JSON path error")));
+	throwJsonPathError(jper);
 
 	*empty = !found;
 
