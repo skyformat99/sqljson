@@ -11646,7 +11646,7 @@ table_ref:	relation_expr opt_alias_clause
 				{
 					JsonTable *jt = castNode(JsonTable, $1);
 					jt->alias = $2;
-					$$ = (Node *) jt;					
+					$$ = (Node *) jt;
 				}
 		;
 
@@ -14591,7 +14591,7 @@ json_value_behavior:
 json_value_on_behavior_clause_opt:
 			json_value_behavior ON EMPTY_P
 									{ $$.on_empty = $1; $$.on_error = NULL; }
-			| json_value_behavior ON EMPTY_P json_value_behavior ON ERROR_P  
+			| json_value_behavior ON EMPTY_P json_value_behavior ON ERROR_P
 									{ $$.on_empty = $1; $$.on_error = $4; }
 			| json_value_behavior ON ERROR_P
 									{ $$.on_empty = NULL; $$.on_error = $1; }
@@ -14617,7 +14617,7 @@ json_query_expr:
 						ereport(ERROR,
 								(errcode(ERRCODE_SYNTAX_ERROR),
 								 errmsg("SQL/JSON QUOTES behavior shall not be specified when WITH WRAPPER is used"),
-								 parser_errposition(@6)));				
+								 parser_errposition(@6)));
 					n->omit_quotes = $6 == JS_QUOTES_OMIT;
 					n->on_empty = $7.on_empty;
 					n->on_error = $7.on_error;
@@ -14678,7 +14678,7 @@ json_query_on_behavior_clause_opt:
 									{ $$.on_empty = NULL; $$.on_error = $1; }
 			|  /* EMPTY */
 									{ $$.on_empty = NULL; $$.on_error = NULL; }
-			
+
 json_table:
 			JSON_TABLE '('
 				json_api_common_syntax
@@ -15842,7 +15842,7 @@ col_name_keyword:
 			| DECIMAL_P
 			| EXISTS
 			| EXTRACT
-			| FLOAT_P			
+			| FLOAT_P
 			| GREATEST
 			| GROUPING
 			| INOUT
@@ -15857,7 +15857,7 @@ col_name_keyword:
 			| JSON_QUERY
 			| JSON_TABLE
 			| JSON_TABLE_PRIMITIVE
-			| JSON_VALUE			
+			| JSON_VALUE
 			| LEAST
 			| NATIONAL
 			| NCHAR

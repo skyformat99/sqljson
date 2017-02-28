@@ -1634,7 +1634,7 @@ transformJsonTableColumns(ParseState *pstate, JsonTableContext *cxt,
 					 errdetail("JSON_TABLE columns shall contain "
 							   "explicit AS pathname specification if "
 							   "explicit PLAN clause is used"),
-				 	parser_errposition(pstate, location)));
+					parser_errposition(pstate, location)));
 
 		*pathName = generateJsonTableAlias(cxt);
 	}

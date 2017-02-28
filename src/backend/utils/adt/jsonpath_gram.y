@@ -171,7 +171,7 @@ makeAny(int first, int last)
 {
 	JsonPathParseItem *v = makeItemType(jpiAny);
 
-	v->value.anybounds.first = (first > 0) ? first : 0; 
+	v->value.anybounds.first = (first > 0) ? first : 0;
 	v->value.anybounds.last = (last >= 0) ? last : PG_UINT32_MAX;
 
 	return v;
