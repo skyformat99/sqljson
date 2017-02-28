@@ -3612,6 +3612,72 @@ select _jsonpath_exists('{"c": {"a": 1, "b":1}}', '$.** ? (.a == .b)');
  t
 (1 row)
 
+select _jsonpath_object('{"c": {"a": 2, "b":1}}', '$.** ? (.a == 1 + 1)');
+ _jsonpath_object 
+------------------
+ {"a": 2, "b": 1}
+(1 row)
+
+select _jsonpath_object('{"c": {"a": 2, "b":1}}', '$.** ? (.a == (1 + 1))');
+ _jsonpath_object 
+------------------
+ {"a": 2, "b": 1}
+(1 row)
+
+select _jsonpath_object('{"c": {"a": 2, "b":1}}', '$.** ? (.a == .b + 1)');
+ _jsonpath_object 
+------------------
+ {"a": 2, "b": 1}
+(1 row)
+
+select _jsonpath_object('{"c": {"a": 2, "b":1}}', '$.** ? (.a == (.b + 1))');
+ _jsonpath_object 
+------------------
+ {"a": 2, "b": 1}
+(1 row)
+
+select _jsonpath_exists('{"c": {"a": -1, "b":1}}', '$.** ? (.a == - 1)');
+ _jsonpath_exists 
+------------------
+ t
+(1 row)
+
+select _jsonpath_exists('{"c": {"a": -1, "b":1}}', '$.** ? (.a == -1)');
+ _jsonpath_exists 
+------------------
+ t
+(1 row)
+
+select _jsonpath_exists('{"c": {"a": -1, "b":1}}', '$.** ? (.a == -.b)');
+ _jsonpath_exists 
+------------------
+ t
+(1 row)
+
+select _jsonpath_exists('{"c": {"a": -1, "b":1}}', '$.** ? (.a == - .b)');
+ _jsonpath_exists 
+------------------
+ t
+(1 row)
+
+select _jsonpath_exists('{"c": {"a": 0, "b":1}}', '$.** ? (.a == 1 - .b)');
+ _jsonpath_exists 
+------------------
+ t
+(1 row)
+
+select _jsonpath_exists('{"c": {"a": 2, "b":1}}', '$.** ? (.a == 1 - - .b)');
+ _jsonpath_exists 
+------------------
+ t
+(1 row)
+
+select _jsonpath_exists('{"c": {"a": 0, "b":1}}', '$.** ? (.a == 1 - +.b)');
+ _jsonpath_exists 
+------------------
+ t
+(1 row)
+
 --test ternary logic
 select
 	x, y,
