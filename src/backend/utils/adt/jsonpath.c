@@ -98,7 +98,6 @@ flattenJsonPathParseItem(StringInfo buf, JsonPathParseItem *item,
 		case jpiFilter:
 		case jpiIsUnknown:
 		case jpiNot:
-		case jpiPlus:
 		case jpiMinus:
 		case jpiExists:
 			{
@@ -476,7 +475,6 @@ jspInitByBuffer(JsonPathItem *v, char *base, int32 pos)
 		case jpiExists:
 		case jpiIsUnknown:
 		case jpiMinus:
-		case jpiPlus:
 		case jpiFilter:
 			read_int32(v->arg, base, pos);
 			break;
@@ -501,7 +499,6 @@ jspGetArg(JsonPathItem *v, JsonPathItem *a)
 		v->type == jpiNot ||
 		v->type == jpiIsUnknown ||
 		v->type == jpiExists ||
-		v->type == jpiPlus ||
 		v->type == jpiMinus
 	);
 
@@ -938,19 +935,31 @@ executeArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
 	Datum		rdatum;
 	Datum		res;
 
-	jspGetLeftArg(jsp, &elem);
+	if (jsp->type == jpiMinus)
+		jspGetArg(jsp, &elem);
+	else
+		jspGetLeftArg(jsp, &elem);
+
 	jper = recursiveExecute(cxt, &elem, jb, &lseq);
-	if (jper == jperOk)
+
+	if (jper == jperOk && jsp->type != jpiMinus)
 	{
 		jspGetRightArg(jsp, &elem);
 		jper = recursiveExecute(cxt, &elem, jb, &rseq);
 	}
 
-	if (jper != jperOk || list_length(lseq) != 1 || list_length(rseq) != 1)
-		return jperError; /* ERRCODE_SINGLETON_JSON_ITEM_REQUIRED; */
+	if (jsp->type == jpiMinus)
+	{
+		if (jper != jperOk || list_length(lseq) != 1)
+			return jperError; /* ERRCODE_SINGLETON_JSON_ITEM_REQUIRED; */
+	}
+	else
+	{
+		if (jper != jperOk || list_length(lseq) != 1 || list_length(rseq) != 1)
+			return jperError; /* ERRCODE_SINGLETON_JSON_ITEM_REQUIRED; */
+	}
 
 	lval = linitial(lseq);
-	rval = linitial(rseq);
 
 	if (JsonbType(lval) == jbvScalar)
 		lval = JsonbExtractScalar(lval->val.binary.data, &lvalbuf);
@@ -958,20 +967,29 @@ executeArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
 	if (lval->type != jbvNumeric)
 		return jperError; /* ERRCODE_SINGLETON_JSON_ITEM_REQUIRED; */
 
-	if (JsonbType(rval) == jbvScalar)
-		rval = JsonbExtractScalar(rval->val.binary.data, &rvalbuf);
+	if (jsp->type != jpiMinus)
+	{
+		rval = linitial(rseq);
 
-	if (rval->type != jbvNumeric)
-		return jperError; /* ERRCODE_SINGLETON_JSON_ITEM_REQUIRED; */
+		if (JsonbType(rval) == jbvScalar)
+			rval = JsonbExtractScalar(rval->val.binary.data, &rvalbuf);
+
+		if (rval->type != jbvNumeric)
+			return jperError; /* ERRCODE_SINGLETON_JSON_ITEM_REQUIRED; */
+	}
 
 	if (!found)
 		return jperOk;
 
 	ldatum = NumericGetDatum(lval->val.numeric);
-	rdatum = NumericGetDatum(rval->val.numeric);
+	if (jsp->type != jpiMinus)
+		rdatum = NumericGetDatum(rval->val.numeric);
 
 	switch (jsp->type)
 	{
+		case jpiMinus:
+			res = DirectFunctionCall1(numeric_uminus, ldatum);
+			break;
 		case jpiAdd:
 			res = DirectFunctionCall2(numeric_add, ldatum, rdatum);
 			break;
@@ -1310,6 +1328,7 @@ recursiveExecute(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
 		case jpiMul:
 		case jpiDiv:
 		case jpiMod:
+		case jpiMinus:
 			res = executeArithmExpr(cxt, jsp, jb, found);
 			break;
 		case jpiRoot:
