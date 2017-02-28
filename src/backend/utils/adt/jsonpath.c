@@ -67,7 +67,9 @@ flattenJsonPathParseItem(StringInfo buf, JsonPathParseItem *item,
 		case jpiVariable:
 			/* scalars aren't checked during grammar parse */
 			if (item->next != NULL)
-				elog(ERROR,"Scalar could not be a part of path");
+				ereport(ERROR,
+						(errcode(ERRCODE_SYNTAX_ERROR),
+						 errmsg("scalar could not be a part of path")));
 		case jpiKey:
 			appendBinaryStringInfo(buf, (char*)&item->value.string.len,
 								   sizeof(item->value.string.len));
@@ -76,13 +78,17 @@ flattenJsonPathParseItem(StringInfo buf, JsonPathParseItem *item,
 			break;
 		case jpiNumeric:
 			if (item->next != NULL)
-				elog(ERROR,"Scalar could not be a part of path");
+				ereport(ERROR,
+						(errcode(ERRCODE_SYNTAX_ERROR),
+						 errmsg("scalar could not be a part of path")));
 			appendBinaryStringInfo(buf, (char*)item->value.numeric,
 								   VARSIZE(item->value.numeric));
 			break;
 		case jpiBool:
 			if (item->next != NULL)
-				elog(ERROR,"Scalar could not be a part of path");
+				ereport(ERROR,
+						(errcode(ERRCODE_SYNTAX_ERROR),
+						 errmsg("scalar could not be a part of path")));
 			appendBinaryStringInfo(buf, (char*)&item->value.boolean,
 								   sizeof(item->value.boolean));
 			break;
@@ -138,11 +144,15 @@ flattenJsonPathParseItem(StringInfo buf, JsonPathParseItem *item,
 			break;
 		case jpiNull:
 			if (item->next != NULL)
-				elog(ERROR,"Scalar could not be a part of path");
+				ereport(ERROR,
+						(errcode(ERRCODE_SYNTAX_ERROR),
+						 errmsg("scalar could not be a part of path")));
 			break;
 		case jpiRoot:
 			if (forbiddenRoot)
-				elog(ERROR,"Root is not allowed in expression");
+				ereport(ERROR,
+						(errcode(ERRCODE_SYNTAX_ERROR),
+						 errmsg("root is not allowed in expression")));
 		case jpiAnyArray:
 		case jpiAnyKey:
 		case jpiCurrent:
@@ -165,7 +175,7 @@ flattenJsonPathParseItem(StringInfo buf, JsonPathParseItem *item,
 								   sizeof(item->value.anybounds.last));
 			break;
 		default:
-			elog(ERROR, "1Unknown type: %d", item->type);
+			elog(ERROR, "Unknown type: %d", item->type);
 	}
 
 	if (item->next)
@@ -237,7 +247,7 @@ printOperation(StringInfo buf, JsonPathItemType type)
 		case jpiMod:
 			appendBinaryStringInfo(buf, " % ", 3); break;
 		default:
-			elog(ERROR, "2Unknown type: %d", type);
+			elog(ERROR, "Unknown type: %d", type);
 	}
 }
 
@@ -531,7 +541,7 @@ jspInitByBuffer(JsonPathItem *v, char *base, int32 pos)
 			read_int32(v->content.anybounds.last, base, pos);
 			break;
 		default:
-			elog(ERROR, "3Unknown type: %d", v->type);
+			elog(ERROR, "Unknown type: %d", v->type);
 	}
 }
 
@@ -679,8 +689,10 @@ computeJsonPathVariable(JsonPathItem *variable, List *vars, JsonbValue *value)
 	}
 
 	if (var == NULL)
-		elog(ERROR, "could not find '%s' passed variable",
-					pnstrdup(varName, varNameLength));
+		ereport(ERROR,
+				(errcode(ERRCODE_NO_DATA_FOUND),
+				 errmsg("could not find '%s' passed variable",
+						pnstrdup(varName, varNameLength))));
 
 	computedValue = var->cb(var->cb_arg, &isNull);
 
@@ -721,7 +733,9 @@ computeJsonPathVariable(JsonPathItem *variable, List *vars, JsonbValue *value)
 			}
 			break;
 		default:
-			elog(ERROR, "only bool, numeric and text types could be casted to supported jsonpath types");
+			ereport(ERROR,
+					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+					 errmsg("only bool, numeric and text types could be casted to supported jsonpath types")));
 	}
 }
 
@@ -831,7 +845,7 @@ checkEquality(JsonbValue *jb1, JsonbValue *jb2, bool not)
 			eq = (compareNumeric(jb1->val.numeric, jb2->val.numeric) == 0);
 			break;
 		default:
-			elog(ERROR,"1Wrong state");
+			elog(ERROR,"Wrong state");
 	}
 
 	return (not ^ eq) ? jperOk : jperNotFound;
@@ -1577,7 +1591,7 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 			}
 			break;
 		default:
-			elog(ERROR,"2Wrong state: %d", jsp->type);
+			elog(ERROR,"Wrong state: %d", jsp->type);
 	}
 
 	return res;
@@ -1726,7 +1740,9 @@ makePassingVars(Jsonb *jb)
 	r =  JsonbIteratorNext(&it, &v, true);
 
 	if (r != WJB_BEGIN_OBJECT)
-		elog(ERROR, "passing variable json is not a object");
+		ereport(ERROR,
+				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+				 errmsg("passing variable json is not a object")));
 
 	while((r = JsonbIteratorNext(&it, &v, true)) != WJB_DONE)
 	{
