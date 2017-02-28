@@ -356,11 +356,11 @@ printJsonPathItem(StringInfo buf, JsonPathItem *v, bool inKey, bool printBracket
 			if (inKey)
 				appendStringInfoChar(buf, '.');
 			appendStringInfoChar(buf, '[');
-			for(i = 0; i< v->array.nelems; i++)
+			for(i = 0; i< v->content.array.nelems; i++)
 			{
 				if (i)
 					appendStringInfoChar(buf, ',');
-				appendStringInfo(buf, "%d", v->array.elems[i]);
+				appendStringInfo(buf, "%d", v->content.array.elems[i]);
 			}
 			appendStringInfoChar(buf, ']');
 			break;
@@ -368,18 +368,18 @@ printJsonPathItem(StringInfo buf, JsonPathItem *v, bool inKey, bool printBracket
 			if (inKey)
 				appendStringInfoChar(buf, '.');
 
-			if (v->anybounds.first == 0 &&
-					v->anybounds.last == PG_UINT32_MAX)
+			if (v->content.anybounds.first == 0 &&
+					v->content.anybounds.last == PG_UINT32_MAX)
 				appendBinaryStringInfo(buf, "**", 2);
-			else if (v->anybounds.first == 0)
-				appendStringInfo(buf, "**{,%u}", v->anybounds.last);
-			else if (v->anybounds.last == PG_UINT32_MAX)
-				appendStringInfo(buf, "**{%u,}", v->anybounds.first);
-			else if (v->anybounds.first == v->anybounds.last)
-				appendStringInfo(buf, "**{%u}", v->anybounds.first);
+			else if (v->content.anybounds.first == 0)
+				appendStringInfo(buf, "**{,%u}", v->content.anybounds.last);
+			else if (v->content.anybounds.last == PG_UINT32_MAX)
+				appendStringInfo(buf, "**{%u,}", v->content.anybounds.first);
+			else if (v->content.anybounds.first == v->content.anybounds.last)
+				appendStringInfo(buf, "**{%u}", v->content.anybounds.first);
 			else
-				appendStringInfo(buf, "**{%u,%u}", v->anybounds.first,
-												   v->anybounds.last);
+				appendStringInfo(buf, "**{%u,%u}", v->content.anybounds.first,
+												   v->content.anybounds.last);
 			break;
 		default:
 			elog(ERROR, "Unknown JsonPathItem type: %d", v->type);
@@ -457,11 +457,11 @@ jspInitByBuffer(JsonPathItem *v, char *base, int32 pos)
 		case jpiKey:
 		case jpiString:
 		case jpiVariable:
-			read_int32(v->value.datalen, base, pos);
+			read_int32(v->content.value.datalen, base, pos);
 			/* follow next */
 		case jpiNumeric:
 		case jpiBool:
-			v->value.data = base + pos;
+			v->content.value.data = base + pos;
 			break;
 		case jpiAnd:
 		case jpiOr:
@@ -476,8 +476,8 @@ jspInitByBuffer(JsonPathItem *v, char *base, int32 pos)
 		case jpiGreater:
 		case jpiLessOrEqual:
 		case jpiGreaterOrEqual:
-			read_int32(v->args.left, base, pos);
-			read_int32(v->args.right, base, pos);
+			read_int32(v->content.args.left, base, pos);
+			read_int32(v->content.args.right, base, pos);
 			break;
 		case jpiNot:
 		case jpiExists:
@@ -485,15 +485,15 @@ jspInitByBuffer(JsonPathItem *v, char *base, int32 pos)
 		case jpiPlus:
 		case jpiMinus:
 		case jpiFilter:
-			read_int32(v->arg, base, pos);
+			read_int32(v->content.arg, base, pos);
 			break;
 		case jpiIndexArray:
-			read_int32(v->array.nelems, base, pos);
-			read_int32_n(v->array.elems, base, pos, v->array.nelems);
+			read_int32(v->content.array.nelems, base, pos);
+			read_int32_n(v->content.array.elems, base, pos, v->content.array.nelems);
 			break;
 		case jpiAny:
-			read_int32(v->anybounds.first, base, pos);
-			read_int32(v->anybounds.last, base, pos);
+			read_int32(v->content.anybounds.first, base, pos);
+			read_int32(v->content.anybounds.last, base, pos);
 			break;
 		default:
 			elog(ERROR, "3Unknown type: %d", v->type);
@@ -512,7 +512,7 @@ jspGetArg(JsonPathItem *v, JsonPathItem *a)
 		v->type == jpiMinus
 	);
 
-	jspInitByBuffer(a, v->base, v->arg);
+	jspInitByBuffer(a, v->base, v->content.arg);
 }
 
 bool
@@ -559,7 +559,7 @@ jspGetLeftArg(JsonPathItem *v, JsonPathItem *a)
 		v->type == jpiMod
 	);
 
-	jspInitByBuffer(a, v->base, v->args.left);
+	jspInitByBuffer(a, v->base, v->content.args.left);
 }
 
 void
@@ -581,7 +581,7 @@ jspGetRightArg(JsonPathItem *v, JsonPathItem *a)
 		v->type == jpiMod
 	);
 
-	jspInitByBuffer(a, v->base, v->args.right);
+	jspInitByBuffer(a, v->base, v->content.args.right);
 }
 
 bool
@@ -589,7 +589,7 @@ jspGetBool(JsonPathItem *v)
 {
 	Assert(v->type == jpiBool);
 
-	return (bool)*v->value.data;
+	return (bool)*v->content.value.data;
 }
 
 Numeric
@@ -597,7 +597,7 @@ jspGetNumeric(JsonPathItem *v)
 {
 	Assert(v->type == jpiNumeric);
 
-	return (Numeric)v->value.data;
+	return (Numeric)v->content.value.data;
 }
 
 char*
@@ -610,8 +610,8 @@ jspGetString(JsonPathItem *v, int32 *len)
 	);
 
 	if (len)
-		*len = v->value.datalen;
-	return v->value.data;
+		*len = v->content.value.datalen;
+	return v->content.value.data;
 }
 
 /********************Execute functions for JsonPath***************************/
@@ -1298,10 +1298,10 @@ recursiveExecute(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
 
 				hasNext = jspGetNext(jsp, &elem);
 
-				for(i=0; i<jsp->array.nelems; i++)
+				for(i=0; i<jsp->content.array.nelems; i++)
 				{
 					v = getIthJsonbValueFromContainer(jb->val.binary.data,
-													  jsp->array.elems[i]);
+													  jsp->content.array.elems[i]);
 
 					if (v == NULL)
 						continue;
@@ -1413,7 +1413,7 @@ recursiveExecute(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
 			bool hasNext = jspGetNext(jsp, &elem);
 
 			/* first try without any intermediate steps */
-			if (jsp->anybounds.first == 0)
+			if (jsp->content.anybounds.first == 0)
 			{
 				if (hasNext)
 				{
@@ -1433,8 +1433,8 @@ recursiveExecute(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
 			if (jb->type == jbvBinary)
 				res = recursiveAny(cxt, hasNext ? &elem : NULL, jb, found,
 								   1,
-								   jsp->anybounds.first,
-								   jsp->anybounds.last);
+								   jsp->content.anybounds.first,
+								   jsp->content.anybounds.last);
 			break;
 		}
 		case jpiExists:
