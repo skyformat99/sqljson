@@ -3576,6 +3576,42 @@ select _jsonpath_object('{"g": {"x": 2}}', '$.g ? (exists (@.x ? (@ >= 2)))');
  {"x": 2}
 (1 row)
 
+select _jsonpath_exists('{"a": 1, "b":1}', '$ ? (.a == .b)');
+ _jsonpath_exists 
+------------------
+ t
+(1 row)
+
+select _jsonpath_exists('{"c": {"a": 1, "b":1}}', '$ ? (.a == .b)');
+ _jsonpath_exists 
+------------------
+ f
+(1 row)
+
+select _jsonpath_exists('{"c": {"a": 1, "b":1}}', '$.c ? (.a == .b)');
+ _jsonpath_exists 
+------------------
+ t
+(1 row)
+
+select _jsonpath_exists('{"c": {"a": 1, "b":1}}', '$.* ? (.a == .b)');
+ _jsonpath_exists 
+------------------
+ t
+(1 row)
+
+select _jsonpath_exists('{"a": 1, "b":1}', '$.** ? (.a == .b)');
+ _jsonpath_exists 
+------------------
+ t
+(1 row)
+
+select _jsonpath_exists('{"c": {"a": 1, "b":1}}', '$.** ? (.a == .b)');
+ _jsonpath_exists 
+------------------
+ t
+(1 row)
+
 --test ternary logic
 select
 	x, y,

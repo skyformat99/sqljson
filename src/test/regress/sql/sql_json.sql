@@ -1300,6 +1300,8 @@ select _jsonpath_exists('{"a": 1, "b":1}', '$ ? (.a == .b)');
 select _jsonpath_exists('{"c": {"a": 1, "b":1}}', '$ ? (.a == .b)');
 select _jsonpath_exists('{"c": {"a": 1, "b":1}}', '$.c ? (.a == .b)');
 select _jsonpath_exists('{"c": {"a": 1, "b":1}}', '$.* ? (.a == .b)');
+select _jsonpath_exists('{"a": 1, "b":1}', '$.** ? (.a == .b)');
+select _jsonpath_exists('{"c": {"a": 1, "b":1}}', '$.** ? (.a == .b)');
 
 --test ternary logic
 select
