@@ -417,7 +417,7 @@ hexval(char c)
 }
 
 /*
- * parseUnicode was adopted from json_lex_string() in 
+ * parseUnicode was adopted from json_lex_string() in
  * src/backend/utils/adt/json.c
  */
 static void
