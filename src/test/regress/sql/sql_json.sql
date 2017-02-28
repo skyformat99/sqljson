@@ -1299,6 +1299,11 @@ select _jsonpath_object('{"g": {"x": 2}}', '$.g ? (exists (@.x))');
 select _jsonpath_object('{"g": {"x": 2}}', '$.g ? (exists (@.y))');
 select _jsonpath_object('{"g": {"x": 2}}', '$.g ? (exists (@.x ? (@ >= 2)))');
 
+select _jsonpath_exists('{"a": 1, "b":1}', '$ ? (.a == .b)');
+select _jsonpath_exists('{"c": {"a": 1, "b":1}}', '$ ? (.a == .b)');
+select _jsonpath_exists('{"c": {"a": 1, "b":1}}', '$.c ? (.a == .b)');
+select _jsonpath_exists('{"c": {"a": 1, "b":1}}', '$.* ? (.a == .b)');
+
 --test ternary logic
 select
 	x, y,
