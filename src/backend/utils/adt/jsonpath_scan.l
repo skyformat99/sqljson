@@ -516,22 +516,22 @@ parseUnicode(char *s, int l)
 void *
 jsonpath_yyalloc(yy_size_t bytes)
 {
-    return palloc(bytes);
+	return palloc(bytes);
 }
 
 void *
 jsonpath_yyrealloc(void *ptr, yy_size_t bytes)
 {
-    if (ptr)
-        return repalloc(ptr, bytes);
-    else
-        return palloc(bytes);
+	if (ptr)
+		return repalloc(ptr, bytes);
+	else
+		return palloc(bytes);
 }
 
 void
 jsonpath_yyfree(void *ptr)
 {
-    if (ptr)
-        pfree(ptr);
+	if (ptr)
+		pfree(ptr);
 }
 
