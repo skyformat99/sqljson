@@ -1110,7 +1110,7 @@ transformJsonTableColumn(JsonTableColumn *jtc, Node *contextItemExpr,
 	}
 
 	jvexpr->expr = (Expr *) contextItemExpr;
-	jvexpr->format.type = JS_FORMAT_DEFAULT; /* FIXME JSONB */
+	jvexpr->format.type = JS_FORMAT_DEFAULT;
 	jvexpr->format.encoding = JS_ENC_DEFAULT;
 	jvexpr->null_on_error = false;
 
@@ -1597,7 +1597,6 @@ makeParentJsonTableNode(ParseState *pstate, JsonTableContext *cxt,
 	/* Make reference to JSON context item column (first in the list) */
 	colref->fields = list_make2(makeString(pstrdup(alias->aliasname)),
 								copyObject(linitial(alias->colnames)));
-	//colref->location = location;
 
 	select->fromClause = list_make1(rangefunc);
 	select->targetList = appendJsonTableColumns(pstate, cxt, columns,

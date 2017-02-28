@@ -15011,9 +15011,11 @@ json_name_and_value_list:
 		;
 
 json_name_and_value:
-			// KEY c_expr VALUE_P %prec POSTFIXOP
-			//	{ $$ = $1; /* makeJsonKeyValue($2, $4); */ }
-			// |
+/* TODO
+			KEY c_expr VALUE_P json_value_expr %prec POSTFIXOP
+				{ $$ = makeJsonKeyValue($2, $4); }
+			|
+*/
 			c_expr VALUE_P json_value_expr
 				{ $$ = makeJsonKeyValue($1, $3); }
 			|

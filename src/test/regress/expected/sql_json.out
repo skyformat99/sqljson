@@ -1126,7 +1126,7 @@ SELECT JSON_VALUE(jsonb '123', '$' RETURNING text);
  123
 (1 row)
 
-/* XXX jsonb bytea ??? */
+/* jsonb bytea ??? */
 SELECT JSON_VALUE(jsonb '123', '$' RETURNING bytea);
  ?column? 
 ----------
@@ -1817,7 +1817,7 @@ FROM
 		vals.js, 'lax $[*]'
 		COLUMNS (
 			id FOR ORDINALITY,
-			id2 FOR ORDINALITY, -- XXX allowed additional ordinality columns
+			id2 FOR ORDINALITY, -- allowed additional ordinality columns
 			"int" int PATH '$',
 			"text" text PATH '$',
 			"char(4)" char(4) PATH '$',

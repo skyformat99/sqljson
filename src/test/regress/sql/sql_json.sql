@@ -387,7 +387,7 @@ SELECT JSON_VALUE(jsonb 'true', '$' RETURNING bool);
 SELECT JSON_VALUE(jsonb '123', '$');
 SELECT JSON_VALUE(jsonb '123', '$' RETURNING int) + 234;
 SELECT JSON_VALUE(jsonb '123', '$' RETURNING text);
-/* XXX jsonb bytea ??? */
+/* jsonb bytea ??? */
 SELECT JSON_VALUE(jsonb '123', '$' RETURNING bytea);
 
 SELECT JSON_VALUE(jsonb '1.23', '$');
@@ -633,7 +633,7 @@ FROM
 		vals.js, 'lax $[*]'
 		COLUMNS (
 			id FOR ORDINALITY,
-			id2 FOR ORDINALITY, -- XXX allowed additional ordinality columns
+			id2 FOR ORDINALITY, -- allowed additional ordinality columns
 			"int" int PATH '$',
 			"text" text PATH '$',
 			"char(4)" char(4) PATH '$',
