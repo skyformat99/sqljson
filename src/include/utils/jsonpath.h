@@ -49,6 +49,7 @@ typedef enum JsonPathItemType {
 		jpiMul,
 		jpiDiv,
 		jpiMod,
+		jpiPlus,
 		jpiMinus,
 		jpiAnyArray,
 		jpiAnyKey,
