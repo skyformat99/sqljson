@@ -1432,7 +1432,7 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 
 				for(i=0; i<jsp->content.array.nelems; i++)
 				{
-					/* FIXME array index can be expression */
+					/* TODO for future: array index can be expression */
 					v = getIthJsonbValueFromContainer(jb->val.binary.data,
 													  jsp->content.array.elems[i]);
 
