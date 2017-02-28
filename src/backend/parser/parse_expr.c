@@ -4286,7 +4286,7 @@ transformJsonFuncExprOutput(ParseState *pstate,	JsonFuncExpr *func,
 
 		if (func->op == IS_JSON_VALUE)
 		{
-			 /* XXX forced coercion via I/O for JSON_VALUE */
+			/* Forced coercion via I/O for JSON_VALUE */
 			jsexpr->result_expr = NULL;
 			jsexpr->coerce_via_io = true;
 			return;

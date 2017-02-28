@@ -2893,7 +2893,6 @@ json_is_valid(PG_FUNCTION_ARGS)
 		PG_CATCH();
 		{
 			if (ERRCODE_TO_CATEGORY(geterrcode()) == ERRCODE_DATA_EXCEPTION)
-							/* FIXME == ERRCODE_INVALID_TEXT_REPRESENTATION) */
 			{
 				FlushErrorState();
 				MemoryContextSwitchTo(mcxt);
@@ -2945,7 +2944,6 @@ json_is_valid(PG_FUNCTION_ARGS)
 		PG_CATCH();
 		{
 			if (ERRCODE_TO_CATEGORY(geterrcode()) == ERRCODE_DATA_EXCEPTION)
-							/* FIXME == ERRCODE_INVALID_TEXT_REPRESENTATION) */
 			{
 				FlushErrorState();
 				MemoryContextSwitchTo(mcxt);

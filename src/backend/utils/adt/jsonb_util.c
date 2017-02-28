@@ -1898,7 +1898,7 @@ JsonbValidate(const void *data, uint32 size)
 					if (length - padding < sizeof(struct varlena))
 						return false;
 
-					/* FIXME JsonValidateNumeric(); */
+					/* TODO JsonValidateNumeric(); */
 					break;
 				}
 

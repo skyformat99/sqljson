@@ -943,7 +943,7 @@ exprCollation(const Node *expr)
 				else if (jexpr->coerce_via_io)
 					coll = jexpr->coerce_via_io_collation;
 				else
-					coll = InvalidOid; /* FIXME */
+					coll = InvalidOid;
 			}
 			break;
 		default:
@@ -1154,7 +1154,7 @@ exprSetCollation(Node *expr, Oid collation)
 				else if (jexpr->coerce_via_io)
 					jexpr->coerce_via_io_collation = collation;
 				else
-					Assert(!OidIsValid(collation)); /* FIXME */
+					Assert(!OidIsValid(collation));
 			}
 			break;
 		default:
