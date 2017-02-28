@@ -2263,6 +2263,53 @@ _copyJsonArgument(const JsonArgument *from)
 	return newnode;
 }
 
+/*
+ * _copyJsonKeyValue
+ */
+static JsonKeyValue *
+_copyJsonKeyValue(const JsonKeyValue *from)
+{
+	JsonKeyValue *newnode = makeNode(JsonKeyValue);
+
+	COPY_NODE_FIELD(key);
+	COPY_NODE_FIELD(value);
+
+	return newnode;
+}
+
+/*
+ * _copyJsonObjectCtor
+ */
+static JsonObjectCtor *
+_copyJsonObjectCtor(const JsonObjectCtor *from)
+{
+	JsonObjectCtor *newnode = makeNode(JsonObjectCtor);
+
+	COPY_NODE_FIELD(exprs);
+	COPY_NODE_FIELD(output);
+	COPY_SCALAR_FIELD(absent_on_null);
+	COPY_SCALAR_FIELD(unique);
+	COPY_SCALAR_FIELD(location);
+
+	return newnode;
+}
+
+/*
+ * _copyJsonArrayCtor
+ */
+static JsonArrayCtor *
+_copyJsonArrayCtor(const JsonArrayCtor *from)
+{
+	JsonArrayCtor *newnode = makeNode(JsonArrayCtor);
+
+	COPY_NODE_FIELD(exprs);
+	COPY_NODE_FIELD(output);
+	COPY_SCALAR_FIELD(absent_on_null);
+	COPY_SCALAR_FIELD(location);
+
+	return newnode;
+}
+
 /* ****************************************************************
  *						relation.h copy functions
  *
@@ -5137,6 +5184,15 @@ copyObjectImpl(const void *from)
 			break;
 		case T_JsonArgument:
 			retval = _copyJsonArgument(from);
+			break;
+		case T_JsonKeyValue:
+			retval = _copyJsonKeyValue(from);
+			break;
+		case T_JsonObjectCtor:
+			retval = _copyJsonObjectCtor(from);
+			break;
+		case T_JsonArrayCtor:
+			retval = _copyJsonArrayCtor(from);
 			break;
 
 			/*
