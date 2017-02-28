@@ -1563,6 +1563,8 @@ makeParentJsonTableNode(ParseState *pstate, JsonTableContext *cxt,
 	Alias	   *alias = makeNode(Alias);
 	FuncCall   *fcall;
 	List	   *args;
+	bool		errorOnError = cxt->table->on_error &&
+							cxt->table->on_error->btype == JSON_BEHAVIOR_ERROR;
 
 	/* Make JSON path argument */
 	path->val.type = T_String;
@@ -1576,7 +1578,9 @@ makeParentJsonTableNode(ParseState *pstate, JsonTableContext *cxt,
 
 	/* Make jsonb_unnest_path() call */
 	fcall = makeFuncCall(list_make2(makeString(pstrdup("pg_catalog")),
-									makeString(pstrdup("_jsonpath_object"))),
+									makeString(pstrdup(errorOnError ?
+													"_jsonpath_object" :
+													"_jsonpath_object_safe"))),
 						 args, -1);
 
 	/* Make alias for RangeFunction */

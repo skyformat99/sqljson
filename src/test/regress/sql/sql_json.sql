@@ -354,7 +354,8 @@ SELECT JSON_EXISTS(jsonb '[]', '$');
 SELECT JSON_EXISTS(jsonb '1', '$.a');
 SELECT JSON_EXISTS(jsonb 'null', '$.a');
 SELECT JSON_EXISTS(jsonb '[]', '$.a');
-SELECT JSON_EXISTS(jsonb '[1, "aaa", {"a": 1}]', '$.a');
+SELECT JSON_EXISTS(jsonb '[1, "aaa", {"a": 1}]', 'strict $.a');
+SELECT JSON_EXISTS(jsonb '[1, "aaa", {"a": 1}]', 'lax $.a');
 SELECT JSON_EXISTS(jsonb '{}', '$.a');
 SELECT JSON_EXISTS(jsonb '{"b": 1, "a": 2}', '$.a');
 
@@ -426,12 +427,15 @@ SELECT JSON_VALUE(jsonb '{}', '$');
 SELECT JSON_VALUE(jsonb '{}', '$' ERROR ON ERROR);
 
 SELECT JSON_VALUE(jsonb '1', '$.a');
-SELECT JSON_VALUE(jsonb '1', '$.a' ERROR ON ERROR);
+SELECT JSON_VALUE(jsonb '1', 'strict $.a' ERROR ON ERROR);
+SELECT JSON_VALUE(jsonb '1', 'lax $.a' ERROR ON ERROR);
+SELECT JSON_VALUE(jsonb '1', 'lax $.a' ERROR ON EMPTY ERROR ON ERROR);
 SELECT JSON_VALUE(jsonb '1', '$.a' DEFAULT 2 ON ERROR);
-SELECT JSON_VALUE(jsonb '1', '$.a' DEFAULT '2' ON ERROR);
-SELECT JSON_VALUE(jsonb '1', '$.a' NULL ON EMPTY DEFAULT '2' ON ERROR);
-SELECT JSON_VALUE(jsonb '1', '$.a' DEFAULT '2' ON EMPTY DEFAULT '3' ON ERROR);
-SELECT JSON_VALUE(jsonb '1', '$.a' ERROR ON EMPTY DEFAULT '3' ON ERROR);
+SELECT JSON_VALUE(jsonb '1', 'lax $.a' DEFAULT 2 ON ERROR);
+SELECT JSON_VALUE(jsonb '1', 'lax $.a' DEFAULT '2' ON ERROR);
+SELECT JSON_VALUE(jsonb '1', 'lax $.a' NULL ON EMPTY DEFAULT '2' ON ERROR);
+SELECT JSON_VALUE(jsonb '1', 'lax $.a' DEFAULT '2' ON EMPTY DEFAULT '3' ON ERROR);
+SELECT JSON_VALUE(jsonb '1', 'lax $.a' ERROR ON EMPTY DEFAULT '3' ON ERROR);
 
 SELECT JSON_VALUE(jsonb '[1,2]', '$[*]' ERROR ON ERROR);
 SELECT JSON_VALUE(jsonb '[1,2]', '$[*]' DEFAULT '0' ON ERROR);
@@ -470,11 +474,11 @@ FROM
 	) foo(js);
 
 SELECT
-	JSON_QUERY(js FORMAT JSONB, '$[*]') AS "unspec",
-	JSON_QUERY(js FORMAT JSONB, '$[*]' WITHOUT WRAPPER) AS "without",
-	JSON_QUERY(js FORMAT JSONB, '$[*]' WITH CONDITIONAL WRAPPER) AS "with cond",
-	JSON_QUERY(js FORMAT JSONB, '$[*]' WITH UNCONDITIONAL ARRAY WRAPPER) AS "with uncond",
-	JSON_QUERY(js FORMAT JSONB, '$[*]' WITH ARRAY WRAPPER) AS "with"
+	JSON_QUERY(js FORMAT JSONB, 'strict $[*]') AS "unspec",
+	JSON_QUERY(js FORMAT JSONB, 'strict $[*]' WITHOUT WRAPPER) AS "without",
+	JSON_QUERY(js FORMAT JSONB, 'strict $[*]' WITH CONDITIONAL WRAPPER) AS "with cond",
+	JSON_QUERY(js FORMAT JSONB, 'strict $[*]' WITH UNCONDITIONAL ARRAY WRAPPER) AS "with uncond",
+	JSON_QUERY(js FORMAT JSONB, 'strict $[*]' WITH ARRAY WRAPPER) AS "with"
 FROM
 	(VALUES
 		('1'),
@@ -630,7 +634,7 @@ FROM
 	LEFT OUTER JOIN
 -- JSON_TABLE is implicitly lateral
 	JSON_TABLE(
-		vals.js, '$[*]'
+		vals.js, 'lax $[*]'
 		COLUMNS (
 			id FOR ORDINALITY,
 			id2 FOR ORDINALITY, -- XXX allowed additional ordinality columns
@@ -672,11 +676,12 @@ FROM
 		ON true;
 
 SELECT * FROM JSON_TABLE('1', '$' COLUMNS (a int PATH '$.a' ERROR ON EMPTY)) jt;
-SELECT * FROM JSON_TABLE('1', '$' COLUMNS (a int PATH '$.a' ERROR ON EMPTY)) jt;
-SELECT * FROM JSON_TABLE('1', '$' COLUMNS (a int PATH '$.a' ERROR ON EMPTY) ERROR ON ERROR) jt;
+SELECT * FROM JSON_TABLE('1', '$' COLUMNS (a int PATH 'strict $.a' ERROR ON EMPTY) ERROR ON ERROR) jt;
+SELECT * FROM JSON_TABLE('1', '$' COLUMNS (a int PATH 'lax $.a' ERROR ON EMPTY) ERROR ON ERROR) jt;
 
 SELECT * FROM JSON_TABLE('"a"', '$' COLUMNS (a int PATH '$'   DEFAULT 1 ON EMPTY DEFAULT 2 ON ERROR)) jt;
-SELECT * FROM JSON_TABLE('"a"', '$' COLUMNS (a int PATH '$.a' DEFAULT 1 ON EMPTY DEFAULT 2 ON ERROR)) jt;
+SELECT * FROM JSON_TABLE('"a"', '$' COLUMNS (a int PATH 'strict $.a' DEFAULT 1 ON EMPTY DEFAULT 2 ON ERROR)) jt;
+SELECT * FROM JSON_TABLE('"a"', '$' COLUMNS (a int PATH 'lax $.a' DEFAULT 1 ON EMPTY DEFAULT 2 ON ERROR)) jt;
 
 -- JSON_TABLE: nested paths and plans
 
@@ -862,7 +867,7 @@ SELECT * FROM JSON_TABLE(
 ) jt;
 
 SELECT * FROM JSON_TABLE(
-	'null', '$[*]' AS p0
+	'null', 'strict $[*]' AS p0
 	COLUMNS (
 		NESTED PATH '$' AS p1 COLUMNS (
 			NESTED PATH '$' AS p11 COLUMNS ( foo int ),
@@ -876,7 +881,7 @@ SELECT * FROM JSON_TABLE(
 ) jt;
 
 SELECT * FROM JSON_TABLE(
-	'null', '$[*]' -- without root path name
+	'null', 'strict $[*]' -- without root path name
 	COLUMNS (
 		NESTED PATH '$' AS p1 COLUMNS (
 			NESTED PATH '$' AS p11 COLUMNS ( foo int ),
@@ -909,12 +914,12 @@ select
 from
 	json_table_test jtt,
 	json_table (
-		jtt.js,'$[*]' as p
+		jtt.js,'strict $[*]' as p
 		columns (
 			n for ordinality,
-			a int default -1 on empty,
-			nested path '$.b[*]' as pb columns ( b int path '$' ),
-			nested path '$.c[*]' as pc columns ( c int path '$' )
+			a int path 'lax $.a' default -1 on empty,
+			nested path 'strict $.b[*]' as pb columns ( b int path '$' ),
+			nested path 'strict $.c[*]' as pc columns ( c int path '$' )
 		)
 	) jt;
 
@@ -924,12 +929,12 @@ select
 from
 	json_table_test jtt,
 	json_table (
-		jtt.js,'$[*]' as p
+		jtt.js,'strict $[*]' as p
 		columns (
 			n for ordinality,
-			a int default -1 on empty,
-			nested path '$.b[*]' as pb columns ( b int path '$' ),
-			nested path '$.c[*]' as pc columns ( c int path '$' )
+			a int path 'lax $.a' default -1 on empty,
+			nested path 'strict $.b[*]' as pb columns ( b int path '$' ),
+			nested path 'strict $.c[*]' as pc columns ( c int path '$' )
 		)
 		plan default (outer, union)
 	) jt;
@@ -940,12 +945,12 @@ select
 from
 	json_table_test jtt,
 	json_table (
-		jtt.js,'$[*]' as p
+		jtt.js,'strict $[*]' as p
 		columns (
 			n for ordinality,
-			a int default -1 on empty,
-			nested path '$.b[*]' as pb columns ( b int path '$' ),
-			nested path '$.c[*]' as pc columns ( c int path '$' )
+			a int path 'lax $.a' default -1 on empty,
+			nested path 'strict $.b[*]' as pb columns ( b int path '$' ),
+			nested path 'strict $.c[*]' as pc columns ( c int path '$' )
 		)
 		plan (p outer (pb union pc))
 	) jt;
@@ -956,12 +961,12 @@ select
 from
 	json_table_test jtt,
 	json_table (
-		jtt.js,'$[*]' as p
+		jtt.js,'strict $[*]' as p
 		columns (
 			n for ordinality,
-			a int default -1 on empty,
-			nested path '$.b[*]' as pb columns ( b int path '$' ),
-			nested path '$.c[*]' as pc columns ( c int path '$' )
+			a int path 'lax $.a' default -1 on empty,
+			nested path 'strict $.b[*]' as pb columns ( b int path '$' ),
+			nested path 'strict $.c[*]' as pc columns ( c int path '$' )
 		)
 		plan (p outer (pc union pb))
 	) jt;
@@ -972,12 +977,12 @@ select
 from
 	json_table_test jtt,
 	json_table (
-		jtt.js,'$[*]' as p
+		jtt.js,'strict $[*]' as p
 		columns (
 			n for ordinality,
-			a int default -1 on empty,
-			nested path '$.b[*]' as pb columns ( b int path '$' ),
-			nested path '$.c[*]' as pc columns ( c int path '$' )
+			a int path 'lax $.a' default -1 on empty,
+			nested path 'strict $.b[*]' as pb columns ( b int path '$' ),
+			nested path 'strict $.c[*]' as pc columns ( c int path '$' )
 		)
 		plan default (inner)
 	) jt;
@@ -988,12 +993,12 @@ select
 from
 	json_table_test jtt,
 	json_table (
-		jtt.js,'$[*]' as p
+		jtt.js,'strict $[*]' as p
 		columns (
 			n for ordinality,
-			a int default -1 on empty,
-			nested path '$.b[*]' as pb columns ( b int path '$' ),
-			nested path '$.c[*]' as pc columns ( c int path '$' )
+			a int path 'lax $.a' default -1 on empty,
+			nested path 'strict $.b[*]' as pb columns ( b int path '$' ),
+			nested path 'strict $.c[*]' as pc columns ( c int path '$' )
 		)
 		plan (p inner (pb union pc))
 	) jt;
@@ -1004,12 +1009,12 @@ select
 from
 	json_table_test jtt,
 	json_table (
-		jtt.js,'$[*]' as p
+		jtt.js,'strict $[*]' as p
 		columns (
 			n for ordinality,
-			a int default -1 on empty,
-			nested path '$.b[*]' as pb columns ( b int path '$' ),
-			nested path '$.c[*]' as pc columns ( c int path '$' )
+			a int path 'lax $.a' default -1 on empty,
+			nested path 'strict $.b[*]' as pb columns ( b int path '$' ),
+			nested path 'strict $.c[*]' as pc columns ( c int path '$' )
 		)
 		plan default (cross, inner)
 	) jt;
@@ -1020,12 +1025,12 @@ select
 from
 	json_table_test jtt,
 	json_table (
-		jtt.js,'$[*]' as p
+		jtt.js,'strict $[*]' as p
 		columns (
 			n for ordinality,
-			a int default -1 on empty,
-			nested path '$.b[*]' as pb columns ( b int path '$' ),
-			nested path '$.c[*]' as pc columns ( c int path '$' )
+			a int path 'lax $.a' default -1 on empty,
+			nested path 'strict $.b[*]' as pb columns ( b int path '$' ),
+			nested path 'strict $.c[*]' as pc columns ( c int path '$' )
 		)
 		plan (p inner (pb cross pc))
 	) jt;
@@ -1036,12 +1041,12 @@ select
 from
 	json_table_test jtt,
 	json_table (
-		jtt.js,'$[*]' as p
+		jtt.js,'strict $[*]' as p
 		columns (
 			n for ordinality,
-			a int default -1 on empty,
-			nested path '$.b[*]' as pb columns ( b int path '$' ),
-			nested path '$.c[*]' as pc columns ( c int path '$' )
+			a int path 'lax $.a' default -1 on empty,
+			nested path 'strict $.b[*]' as pb columns ( b int path '$' ),
+			nested path 'strict $.c[*]' as pc columns ( c int path '$' )
 		)
 		plan default (outer, cross)
 	) jt;
@@ -1052,12 +1057,12 @@ select
 from
 	json_table_test jtt,
 	json_table (
-		jtt.js,'$[*]' as p
+		jtt.js,'strict $[*]' as p
 		columns (
 			n for ordinality,
-			a int default -1 on empty,
-			nested path '$.b[*]' as pb columns ( b int path '$' ),
-			nested path '$.c[*]' as pc columns ( c int path '$' )
+			a int path 'lax $.a' default -1 on empty,
+			nested path 'strict $.b[*]' as pb columns ( b int path '$' ),
+			nested path 'strict $.c[*]' as pc columns ( c int path '$' )
 		)
 		plan (p outer (pb cross pc))
 	) jt;
@@ -1075,16 +1080,16 @@ from
 		'$[*]' as p
 		columns (
 			n for ordinality,
-			a int default -1 on error,
-			nested path '$.b[*]' as pb columns (
+			a int path 'lax $.a' default -1 on error,
+			nested path 'strict $.b[*]' as pb columns (
 				b text format json path '$', 
-				nested path '$[*]' as pb1 columns (
+				nested path 'strict $[*]' as pb1 columns (
 					b1 int path '$'
 				)
 			),
-			nested path '$.c[*]' as pc columns (
+			nested path 'strict $.c[*]' as pc columns (
 				c text format json path '$',
-				nested path '$[*]' as pc1 columns (
+				nested path 'strict $[*]' as pc1 columns (
 					c1 int path '$'
 				)
 			)
@@ -1100,11 +1105,11 @@ FROM
 	generate_series(1, 3) y,
 	JSON_TABLE(
 		'[[1,2,3],[2,3,4,5],[3,4,5,6]]',
-		'$[*] ? (@.[*] < $x)'
+		'strict $[*] ? (@.[*] < $x)'
 		PASSING x AS x, y AS y
 		COLUMNS (
 			y text FORMAT JSON PATH '$',
-			NESTED PATH '$[*] ? (@ >= $y)'
+			NESTED PATH 'strict $[*] ? (@ >= $y)'
 			COLUMNS (
 				z int PATH '$'
 			)
@@ -1123,6 +1128,8 @@ FROM JSON_TABLE(
 --jsonpath io
 
 select '$'::jsonpath;
+select 'strict $'::jsonpath;
+select 'lax $'::jsonpath;
 select '$.a'::jsonpath;
 select '$.a.v'::jsonpath;
 select '$.a.*'::jsonpath;
@@ -1222,10 +1229,9 @@ select _jsonpath_exists('{"a": {"a": 12}}', '$.*.a');
 select _jsonpath_exists('{"b": {"a": 12}}', '$.*.a');
 select _jsonpath_exists('{}', '$.*');
 select _jsonpath_exists('{"a": 1}', '$.*');
-select _jsonpath_exists('{"a": {"b": 1}}', '$.**{1}');
-select _jsonpath_exists('{"a": {"b": 1}}', '$.**{2}');
-select _jsonpath_exists('{"a": {"b": 1}}', '$.**{3}');
-
+select _jsonpath_exists('{"a": {"b": 1}}', 'lax $.**{1}');
+select _jsonpath_exists('{"a": {"b": 1}}', 'lax $.**{2}');
+select _jsonpath_exists('{"a": {"b": 1}}', 'lax $.**{3}');
 select _jsonpath_exists('[]', '$.[*]');
 select _jsonpath_exists('[1]', '$.[*]');
 select _jsonpath_exists('[1]', '$.[1]');
@@ -1233,6 +1239,7 @@ select _jsonpath_exists('[1]', '$.[0]');
 select _jsonpath_exists('{"a": [1,2,3], "b": [3,4,5]}', '$ ? (@.a[*] >  @.b[*])');
 select _jsonpath_exists('{"a": [1,2,3], "b": [3,4,5]}', '$ ? (@.a[*] >= @.b[*])');
 select _jsonpath_exists('{"a": [1,2,3], "b": [3,4,"5"]}', '$ ? (@.a[*] >= @.b[*])');
+select _jsonpath_exists('{"a": [1,2,3], "b": [3,4,"5"]}', 'strict $ ? (@.a[*] >= @.b[*])');
 select _jsonpath_exists('{"a": [1,2,3], "b": [3,4,null]}', '$ ? (@.a[*] >= @.b[*])');
 select _jsonpath_exists('1', '$ ? ((@ == "1") is unknown)');
 select _jsonpath_exists('1', '$ ? ((@ == 1) is unknown)');
@@ -1240,14 +1247,20 @@ select _jsonpath_exists('1', '$ ? ((@ == 1) is unknown)');
 select * from _jsonpath_object('{"a": 12, "b": {"a": 13}}', '$.a');
 select * from _jsonpath_object('{"a": 12, "b": {"a": 13}}', '$.b');
 select * from _jsonpath_object('{"a": 12, "b": {"a": 13}}', '$.*');
-select * from _jsonpath_object('{"a": 12, "b": {"a": 13}}', '$.*.a');
-select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', '$.[*].a');
-select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', '$.[*].*');
-select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', '$.[0].a');
-select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', '$.[1].a');
-select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', '$.[2].a');
-select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', '$.[0,1].a');
-select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', '$.[0 to 10].a');
+select * from _jsonpath_object('{"a": 12, "b": {"a": 13}}', 'lax $.*.a');
+select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', 'lax $.[*].a');
+select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', 'lax $.[*].*');
+select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', 'lax $.[0].a');
+select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', 'lax $.[1].a');
+select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', 'lax $.[2].a');
+select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', 'lax $.[0,1].a');
+select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', 'lax $.[0 to 10].a');
+select * from _jsonpath_object('1', 'lax $[0]');
+select * from _jsonpath_object('1', 'lax $[*]');
+select * from _jsonpath_object('[1]', 'lax $[0]');
+select * from _jsonpath_object('[1]', 'lax $[*]');
+select * from _jsonpath_object('[1,2,3]', 'lax $[*]');
+
 
 select * from _jsonpath_object('{"a": 10}', '$');
 select * from _jsonpath_object('{"a": 10}', '$ ? (.a < $value)');
@@ -1260,25 +1273,25 @@ select * from _jsonpath_object('[10,11,12,13,14,15]', '$.[0 to 2] ? (@ < $value)
 select * from _jsonpath_object('[1,"1",2,"2",null]', '$.[*] ? (@ == "1")');
 select * from _jsonpath_object('[1,"1",2,"2",null]', '$.[*] ? (@ == $value)', '{"value" : "1"}');
 
-select * from _jsonpath_object('{"a": {"b": 1}}', '$.**');
-select * from _jsonpath_object('{"a": {"b": 1}}', '$.**{1}');
-select * from _jsonpath_object('{"a": {"b": 1}}', '$.**{1,}');
-select * from _jsonpath_object('{"a": {"b": 1}}', '$.**{2}');
-select * from _jsonpath_object('{"a": {"b": 1}}', '$.**{2,}');
-select * from _jsonpath_object('{"a": {"b": 1}}', '$.**{3,}');
-select * from _jsonpath_object('{"a": {"b": 1}}', '$.**.b ? ( @ > 0)');
-select * from _jsonpath_object('{"a": {"b": 1}}', '$.**{0}.b ? ( @ > 0)');
-select * from _jsonpath_object('{"a": {"b": 1}}', '$.**{1}.b ? ( @ > 0)');
-select * from _jsonpath_object('{"a": {"b": 1}}', '$.**{0,}.b ? ( @ > 0)');
-select * from _jsonpath_object('{"a": {"b": 1}}', '$.**{1,}.b ? ( @ > 0)');
-select * from _jsonpath_object('{"a": {"b": 1}}', '$.**{1,2}.b ? ( @ > 0)');
-select * from _jsonpath_object('{"a": {"c": {"b": 1}}}', '$.**.b ? ( @ > 0)');
-select * from _jsonpath_object('{"a": {"c": {"b": 1}}}', '$.**{0}.b ? ( @ > 0)');
-select * from _jsonpath_object('{"a": {"c": {"b": 1}}}', '$.**{1}.b ? ( @ > 0)');
-select * from _jsonpath_object('{"a": {"c": {"b": 1}}}', '$.**{0,}.b ? ( @ > 0)');
-select * from _jsonpath_object('{"a": {"c": {"b": 1}}}', '$.**{1,}.b ? ( @ > 0)');
-select * from _jsonpath_object('{"a": {"c": {"b": 1}}}', '$.**{1,2}.b ? ( @ > 0)');
-select * from _jsonpath_object('{"a": {"c": {"b": 1}}}', '$.**{2,3}.b ? ( @ > 0)');
+select * from _jsonpath_object('{"a": {"b": 1}}', 'lax $.**');
+select * from _jsonpath_object('{"a": {"b": 1}}', 'lax $.**{1}');
+select * from _jsonpath_object('{"a": {"b": 1}}', 'lax $.**{1,}');
+select * from _jsonpath_object('{"a": {"b": 1}}', 'lax $.**{2}');
+select * from _jsonpath_object('{"a": {"b": 1}}', 'lax $.**{2,}');
+select * from _jsonpath_object('{"a": {"b": 1}}', 'lax $.**{3,}');
+select * from _jsonpath_object('{"a": {"b": 1}}', 'lax $.**.b ? (@ > 0)');
+select * from _jsonpath_object('{"a": {"b": 1}}', 'lax $.**{0}.b ? (@ > 0)');
+select * from _jsonpath_object('{"a": {"b": 1}}', 'lax $.**{1}.b ? (@ > 0)');
+select * from _jsonpath_object('{"a": {"b": 1}}', 'lax $.**{0,}.b ? (@ > 0)');
+select * from _jsonpath_object('{"a": {"b": 1}}', 'lax $.**{1,}.b ? (@ > 0)');
+select * from _jsonpath_object('{"a": {"b": 1}}', 'lax $.**{1,2}.b ? (@ > 0)');
+select * from _jsonpath_object('{"a": {"c": {"b": 1}}}', 'lax $.**.b ? (@ > 0)');
+select * from _jsonpath_object('{"a": {"c": {"b": 1}}}', 'lax $.**{0}.b ? (@ > 0)');
+select * from _jsonpath_object('{"a": {"c": {"b": 1}}}', 'lax $.**{1}.b ? (@ > 0)');
+select * from _jsonpath_object('{"a": {"c": {"b": 1}}}', 'lax $.**{0,}.b ? (@ > 0)');
+select * from _jsonpath_object('{"a": {"c": {"b": 1}}}', 'lax $.**{1,}.b ? (@ > 0)');
+select * from _jsonpath_object('{"a": {"c": {"b": 1}}}', 'lax $.**{1,2}.b ? (@ > 0)');
+select * from _jsonpath_object('{"a": {"c": {"b": 1}}}', 'lax $.**{2,3}.b ? (@ > 0)');
 
 select * from _jsonpath_exists('{"a": {"b": 1}}', '$.**.b ? (@ > 0)');
 select * from _jsonpath_exists('{"a": {"b": 1}}', '$.**{0}.b ? (@ > 0)');
@@ -1320,6 +1333,14 @@ select _jsonpath_exists('[1,2,3]', '$ ? (+@[*] > +2)');
 select _jsonpath_exists('[1,2,3]', '$ ? (+@[*] > +3)');
 select _jsonpath_exists('[1,2,3]', '$ ? (-@[*] < -2)');
 select _jsonpath_exists('[1,2,3]', '$ ? (-@[*] < -3)');
+
+-- unwrapping of operator arguments in lax mode
+select _jsonpath_object('{"a": [2]}', 'lax $.a * 3');
+select _jsonpath_object('{"a": [2, 3, 4]}', 'lax -$.a');
+-- should fail
+select _jsonpath_object('{"a": [1, 2]}', 'lax $.a * 3');
+-- should fail (by standard unwrapped only arguments of multiplicative expressions)
+select _jsonpath_object('{"a": [2]}', 'lax $.a + 3');
 
 --test ternary logic
 select
