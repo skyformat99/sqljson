@@ -200,7 +200,7 @@ makeAny(int first, int last)
 %token	<str>		STRING_P NUMERIC_P INT_P EXISTS_P STRICT_P LAX_P
 
 %token	<str>		OR_P AND_P NOT_P
-%token	<str>		LESS_P LESSEQUIAL_P EQUIAL_P NOTEQUIAL_P GREATEEQUIAL_P GREATE_P
+%token	<str>		LESS_P LESSEQUAL_P EQUAL_P NOTEQUAL_P GREATEREQUAL_P GREATER_P
 %token	<str>		ANY_P
 
 %type	<result>	result
@@ -253,12 +253,12 @@ scalar_value:
 	;
 
 comp_op:
-	EQUIAL_P						{ $$ = jpiEqual; }
-	| NOTEQUIAL_P					{ $$ = jpiNotEqual; }
+	EQUAL_P							{ $$ = jpiEqual; }
+	| NOTEQUAL_P					{ $$ = jpiNotEqual; }
 	| LESS_P						{ $$ = jpiLess; }
-	| GREATE_P						{ $$ = jpiGreater; }
-	| LESSEQUIAL_P					{ $$ = jpiLessOrEqual; }
-	| GREATEEQUIAL_P				{ $$ = jpiGreaterOrEqual; }
+	| GREATER_P						{ $$ = jpiGreater; }
+	| LESSEQUAL_P					{ $$ = jpiLessOrEqual; }
+	| GREATEREQUAL_P				{ $$ = jpiGreaterOrEqual; }
 	;
 
 delimited_predicate:
