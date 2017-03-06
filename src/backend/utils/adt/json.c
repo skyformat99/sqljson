@@ -2090,7 +2090,7 @@ json_unique_check_key(JsonUniqueCheckContext *cxt, StringInfo out)
 
 		if (!memcmp(curr_key, prev_key, length))
 			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					(errcode(ERRCODE_DUPLICATE_JSON_OBJECT_KEY_VALUE),
 					 errmsg("duplicate JSON key %s", curr_key)));
 	}
 }
