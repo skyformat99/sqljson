@@ -1291,7 +1291,7 @@ jsonb_unique_check_key(JsonbUniqueCheckContext *cxt, bool skip)
 					last->key.val.string.val,
 					last->key.val.string.len))
 			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					(errcode(ERRCODE_DUPLICATE_JSON_OBJECT_KEY_VALUE),
 					 errmsg("duplicate JSON key \"%*s\"",
 							last->key.val.string.len,
 							last->key.val.string.val)));
