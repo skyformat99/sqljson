@@ -3807,6 +3807,155 @@ ERROR:  Singleton SQL/JSON item required
 -- should fail (by standard unwrapped only arguments of multiplicative expressions)
 select _jsonpath_object('{"a": [2]}', 'lax $.a + 3');
 ERROR:  Singleton SQL/JSON item required
+select _jsonpath_object('[null,1,true,"a",[],{}]', '$.type()');
+ _jsonpath_object 
+------------------
+ "array"
+(1 row)
+
+select _jsonpath_object('[null,1,true,"a",[],{}]', 'lax $.type()');
+ _jsonpath_object 
+------------------
+ "array"
+(1 row)
+
+select _jsonpath_object('[null,1,true,"a",[],{}]', '$[*].type()');
+ _jsonpath_object 
+------------------
+ "null"
+ "number"
+ "boolean"
+ "string"
+ "array"
+ "object"
+(6 rows)
+
+select _jsonpath_object('[1,null,true,"11",[],[1],[1,2,3],{},{"a":1,"b":2}]', 'strict $[*].size()');
+ERROR:  SQL/JSON array not found
+select _jsonpath_object('[1,null,true,"11",[],[1],[1,2,3],{},{"a":1,"b":2}]', 'lax $[*].size()');
+ _jsonpath_object 
+------------------
+ 1
+ 1
+ 1
+ 1
+ 0
+ 1
+ 3
+ 1
+ 1
+(9 rows)
+
+select _jsonpath_object('[0, 1, -2, -3.4, 5.6]', '$[*].abs()');
+ _jsonpath_object 
+------------------
+ 0
+ 1
+ 2
+ 3.4
+ 5.6
+(5 rows)
+
+select _jsonpath_object('[0, 1, -2, -3.4, 5.6]', '$[*].floor()');
+ _jsonpath_object 
+------------------
+ 0
+ 1
+ -2
+ -4
+ 5
+(5 rows)
+
+select _jsonpath_object('[0, 1, -2, -3.4, 5.6]', '$[*].ceiling()');
+ _jsonpath_object 
+------------------
+ 0
+ 1
+ -2
+ -3
+ 6
+(5 rows)
+
+select _jsonpath_object('[0, 1, -2, -3.4, 5.6]', '$[*].ceiling().abs()');
+ _jsonpath_object 
+------------------
+ 0
+ 1
+ 2
+ 3
+ 6
+(5 rows)
+
+select _jsonpath_object('[0, 1, -2, -3.4, 5.6]', '$[*].ceiling().abs().type()');
+ _jsonpath_object 
+------------------
+ "number"
+ "number"
+ "number"
+ "number"
+ "number"
+(5 rows)
+
+select _jsonpath_object('[{},1]', '$[*].keyvalue()');
+ERROR:  SQL/JSON object not found
+select _jsonpath_object('{}', '$.keyvalue()');
+ _jsonpath_object 
+------------------
+(0 rows)
+
+select _jsonpath_object('{"a": 1, "b": [1, 2], "c": {"a": "bbb"}}', '$.keyvalue()');
+          _jsonpath_object           
+-------------------------------------
+ {"key": "a", "value": 1}
+ {"key": "b", "value": [1, 2]}
+ {"key": "c", "value": {"a": "bbb"}}
+(3 rows)
+
+select _jsonpath_object('[{"a": 1, "b": [1, 2]}, {"c": {"a": "bbb"}}]', '$[*].keyvalue()');
+          _jsonpath_object           
+-------------------------------------
+ {"key": "a", "value": 1}
+ {"key": "b", "value": [1, 2]}
+ {"key": "c", "value": {"a": "bbb"}}
+(3 rows)
+
+select _jsonpath_object('[{"a": 1, "b": [1, 2]}, {"c": {"a": "bbb"}}]', 'strict $.keyvalue()');
+ERROR:  SQL/JSON object not found
+select _jsonpath_object('[{"a": 1, "b": [1, 2]}, {"c": {"a": "bbb"}}]', 'lax $.keyvalue()');
+          _jsonpath_object           
+-------------------------------------
+ {"key": "a", "value": 1}
+ {"key": "b", "value": [1, 2]}
+ {"key": "c", "value": {"a": "bbb"}}
+(3 rows)
+
+select _jsonpath_object('null', '$.double()');
+ERROR:  Non-numeric SQL/JSON item
+select _jsonpath_object('true', '$.double()');
+ERROR:  Non-numeric SQL/JSON item
+select _jsonpath_object('[]', '$.double()');
+ _jsonpath_object 
+------------------
+(0 rows)
+
+select _jsonpath_object('[]', 'strict $.double()');
+ERROR:  Non-numeric SQL/JSON item
+select _jsonpath_object('{}', '$.double()');
+ERROR:  Non-numeric SQL/JSON item
+select _jsonpath_object('1.23', '$.double()');
+ _jsonpath_object 
+------------------
+ 1.23
+(1 row)
+
+select _jsonpath_object('"1.23"', '$.double()');
+ _jsonpath_object 
+------------------
+ 1.23
+(1 row)
+
+select _jsonpath_object('"1.23aaa"', '$.double()');
+ERROR:  Non-numeric SQL/JSON item
 --test ternary logic
 select
 	x, y,

@@ -1342,6 +1342,35 @@ select _jsonpath_object('{"a": [1, 2]}', 'lax $.a * 3');
 -- should fail (by standard unwrapped only arguments of multiplicative expressions)
 select _jsonpath_object('{"a": [2]}', 'lax $.a + 3');
 
+select _jsonpath_object('[null,1,true,"a",[],{}]', '$.type()');
+select _jsonpath_object('[null,1,true,"a",[],{}]', 'lax $.type()');
+select _jsonpath_object('[null,1,true,"a",[],{}]', '$[*].type()');
+
+select _jsonpath_object('[1,null,true,"11",[],[1],[1,2,3],{},{"a":1,"b":2}]', 'strict $[*].size()');
+select _jsonpath_object('[1,null,true,"11",[],[1],[1,2,3],{},{"a":1,"b":2}]', 'lax $[*].size()');
+
+select _jsonpath_object('[0, 1, -2, -3.4, 5.6]', '$[*].abs()');
+select _jsonpath_object('[0, 1, -2, -3.4, 5.6]', '$[*].floor()');
+select _jsonpath_object('[0, 1, -2, -3.4, 5.6]', '$[*].ceiling()');
+select _jsonpath_object('[0, 1, -2, -3.4, 5.6]', '$[*].ceiling().abs()');
+select _jsonpath_object('[0, 1, -2, -3.4, 5.6]', '$[*].ceiling().abs().type()');
+
+select _jsonpath_object('[{},1]', '$[*].keyvalue()');
+select _jsonpath_object('{}', '$.keyvalue()');
+select _jsonpath_object('{"a": 1, "b": [1, 2], "c": {"a": "bbb"}}', '$.keyvalue()');
+select _jsonpath_object('[{"a": 1, "b": [1, 2]}, {"c": {"a": "bbb"}}]', '$[*].keyvalue()');
+select _jsonpath_object('[{"a": 1, "b": [1, 2]}, {"c": {"a": "bbb"}}]', 'strict $.keyvalue()');
+select _jsonpath_object('[{"a": 1, "b": [1, 2]}, {"c": {"a": "bbb"}}]', 'lax $.keyvalue()');
+
+select _jsonpath_object('null', '$.double()');
+select _jsonpath_object('true', '$.double()');
+select _jsonpath_object('[]', '$.double()');
+select _jsonpath_object('[]', 'strict $.double()');
+select _jsonpath_object('{}', '$.double()');
+select _jsonpath_object('1.23', '$.double()');
+select _jsonpath_object('"1.23"', '$.double()');
+select _jsonpath_object('"1.23aaa"', '$.double()');
+
 --test ternary logic
 select
 	x, y,
