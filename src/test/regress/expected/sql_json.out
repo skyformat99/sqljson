@@ -2910,6 +2910,38 @@ select '$.a[$a + 1, ($b[*]) to -(@[0] * 2)]'::jsonpath;
  $."a".[$"a" + 1,$"b".[*] to -(@.[0] * 2)]
 (1 row)
 
+select 'last'::jsonpath;
+ERROR:  LAST is allowed only in array subscripts
+LINE 1: select 'last'::jsonpath;
+               ^
+select '"last"'::jsonpath;
+ jsonpath 
+----------
+ "last"
+(1 row)
+
+select '$.last'::jsonpath;
+ jsonpath 
+----------
+ $."last"
+(1 row)
+
+select '$ ? (last > 0)'::jsonpath;
+ERROR:  LAST is allowed only in array subscripts
+LINE 1: select '$ ? (last > 0)'::jsonpath;
+               ^
+select '$[last]'::jsonpath;
+ jsonpath 
+----------
+ $.[last]
+(1 row)
+
+select '$[@ ? (last > 0)]'::jsonpath;
+     jsonpath     
+------------------
+ $.[@?(last > 0)]
+(1 row)
+
 select 'null.type()'::jsonpath;
   jsonpath   
 -------------
@@ -3494,6 +3526,39 @@ select * from _jsonpath_object('[1,2,3]', 'lax $[*]');
  3
 (3 rows)
 
+select * from _jsonpath_object('[]', '$[last]');
+ _jsonpath_object 
+------------------
+(0 rows)
+
+select * from _jsonpath_object('[]', 'strict $[last]');
+ERROR:  Invalid SQL/JSON subscript
+select * from _jsonpath_object('[1]', '$[last]');
+ _jsonpath_object 
+------------------
+ 1
+(1 row)
+
+select * from _jsonpath_object('[1,2,3]', '$[last]');
+ _jsonpath_object 
+------------------
+ 3
+(1 row)
+
+select * from _jsonpath_object('[1,2,3]', '$[last - 1]');
+ _jsonpath_object 
+------------------
+ 2
+(1 row)
+
+select * from _jsonpath_object('[1,2,3]', '$[last ? (@.type() == "number")]');
+ _jsonpath_object 
+------------------
+ 3
+(1 row)
+
+select * from _jsonpath_object('[1,2,3]', '$[last ? (@.type() == "string")]');
+ERROR:  Invalid SQL/JSON subscript
 select * from _jsonpath_object('{"a": 10}', '$');
  _jsonpath_object 
 ------------------

@@ -1177,6 +1177,12 @@ select '$.g ? (zip == $zip)'::jsonpath;
 select '$.a.[1,2, 3 to 16]'::jsonpath;
 select '$.a[1,2, 3 to 16]'::jsonpath;
 select '$.a[$a + 1, ($b[*]) to -(@[0] * 2)]'::jsonpath;
+select 'last'::jsonpath;
+select '"last"'::jsonpath;
+select '$.last'::jsonpath;
+select '$ ? (last > 0)'::jsonpath;
+select '$[last]'::jsonpath;
+select '$[@ ? (last > 0)]'::jsonpath;
 
 select 'null.type()'::jsonpath;
 select '1.type()'::jsonpath;
@@ -1279,6 +1285,13 @@ select * from _jsonpath_object('1', 'lax $[*]');
 select * from _jsonpath_object('[1]', 'lax $[0]');
 select * from _jsonpath_object('[1]', 'lax $[*]');
 select * from _jsonpath_object('[1,2,3]', 'lax $[*]');
+select * from _jsonpath_object('[]', '$[last]');
+select * from _jsonpath_object('[]', 'strict $[last]');
+select * from _jsonpath_object('[1]', '$[last]');
+select * from _jsonpath_object('[1,2,3]', '$[last]');
+select * from _jsonpath_object('[1,2,3]', '$[last - 1]');
+select * from _jsonpath_object('[1,2,3]', '$[last ? (@.type() == "number")]');
+select * from _jsonpath_object('[1,2,3]', '$[last ? (@.type() == "string")]');
 
 
 select * from _jsonpath_object('{"a": 10}', '$');
