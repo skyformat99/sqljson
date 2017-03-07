@@ -2844,6 +2844,24 @@ select '$.g ? ((x >= 123 || a == 4) && exists (.x ? (@ == 14)))'::jsonpath;
  $."g"?(("x" >= 123 || "a" == 4) && exists (@."x"?(@ == 14)))
 (1 row)
 
+select '$a'::jsonpath;
+ jsonpath 
+----------
+ $"a"
+(1 row)
+
+select '$a.b'::jsonpath;
+ jsonpath 
+----------
+ $"a"."b"
+(1 row)
+
+select '$a[*]'::jsonpath;
+ jsonpath 
+----------
+ $"a".[*]
+(1 row)
+
 select '$.g ? (zip == $zip)'::jsonpath;
         jsonpath         
 -------------------------
@@ -2860,6 +2878,36 @@ select '$.a[1,2, 3 to 16]'::jsonpath;
                     jsonpath                    
 ------------------------------------------------
  $."a".[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
+(1 row)
+
+select 'null.type()'::jsonpath;
+  jsonpath   
+-------------
+ null.type()
+(1 row)
+
+select '1.type()'::jsonpath;
+ jsonpath 
+----------
+ 1.type()
+(1 row)
+
+select '"aaa".type()'::jsonpath;
+   jsonpath   
+--------------
+ "aaa".type()
+(1 row)
+
+select 'aaa.type()'::jsonpath;
+   jsonpath   
+--------------
+ "aaa".type()
+(1 row)
+
+select 'true.type()'::jsonpath;
+  jsonpath   
+-------------
+ true.type()
 (1 row)
 
 select '$ ? (a < 1)'::jsonpath;
@@ -3784,6 +3832,36 @@ select _jsonpath_object('[null,1,true,"a",[],{}]', '$[*].type()');
  "array"
  "object"
 (6 rows)
+
+select _jsonpath_object('null', 'null.type()');
+ _jsonpath_object 
+------------------
+ "null"
+(1 row)
+
+select _jsonpath_object('null', 'true.type()');
+ _jsonpath_object 
+------------------
+ "boolean"
+(1 row)
+
+select _jsonpath_object('null', '123.type()');
+ _jsonpath_object 
+------------------
+ "number"
+(1 row)
+
+select _jsonpath_object('null', '"123".type()');
+ _jsonpath_object 
+------------------
+ "string"
+(1 row)
+
+select _jsonpath_object('null', 'aaa.type()');
+ _jsonpath_object 
+------------------
+ "string"
+(1 row)
 
 select _jsonpath_object('[1,null,true,"11",[],[1],[1,2,3],{},{"a":1,"b":2}]', '$[*].size()');
 ERROR:  SQL/JSON array not found
