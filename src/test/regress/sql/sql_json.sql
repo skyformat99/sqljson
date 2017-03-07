@@ -1169,9 +1169,18 @@ select '$.g ? (exists (@.x ? (@ == 14)))'::jsonpath;
 select '$.g ? (exists (.x ? (@ == 14)))'::jsonpath;
 select '$.g ? ((x >= 123 || a == 4) && exists (.x ? (@ == 14)))'::jsonpath;
 
+select '$a'::jsonpath;
+select '$a.b'::jsonpath;
+select '$a[*]'::jsonpath;
 select '$.g ? (zip == $zip)'::jsonpath;
 select '$.a.[1,2, 3 to 16]'::jsonpath;
 select '$.a[1,2, 3 to 16]'::jsonpath;
+
+select 'null.type()'::jsonpath;
+select '1.type()'::jsonpath;
+select '"aaa".type()'::jsonpath;
+select 'aaa.type()'::jsonpath;
+select 'true.type()'::jsonpath;
 
 select '$ ? (a < 1)'::jsonpath;
 select '$ ? (a < -1)'::jsonpath;
@@ -1345,6 +1354,11 @@ select _jsonpath_object('{"a": [2]}', 'lax $.a + 3');
 select _jsonpath_object('[null,1,true,"a",[],{}]', '$.type()');
 select _jsonpath_object('[null,1,true,"a",[],{}]', 'lax $.type()');
 select _jsonpath_object('[null,1,true,"a",[],{}]', '$[*].type()');
+select _jsonpath_object('null', 'null.type()');
+select _jsonpath_object('null', 'true.type()');
+select _jsonpath_object('null', '123.type()');
+select _jsonpath_object('null', '"123".type()');
+select _jsonpath_object('null', 'aaa.type()');
 
 select _jsonpath_object('[1,null,true,"11",[],[1],[1,2,3],{},{"a":1,"b":2}]', 'strict $[*].size()');
 select _jsonpath_object('[1,null,true,"11",[],[1],[1,2,3],{},{"a":1,"b":2}]', 'lax $[*].size()');
