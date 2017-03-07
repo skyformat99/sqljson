@@ -1176,6 +1176,7 @@ select '$a[*]'::jsonpath;
 select '$.g ? (zip == $zip)'::jsonpath;
 select '$.a.[1,2, 3 to 16]'::jsonpath;
 select '$.a[1,2, 3 to 16]'::jsonpath;
+select '$.a[$a + 1, ($b[*]) to -(@[0] * 2)]'::jsonpath;
 
 select 'null.type()'::jsonpath;
 select '1.type()'::jsonpath;
@@ -1245,7 +1246,13 @@ select _jsonpath_exists('{"a": {"b": 1}}', 'lax $.**{3}');
 select _jsonpath_exists('[]', '$.[*]');
 select _jsonpath_exists('[1]', '$.[*]');
 select _jsonpath_exists('[1]', '$.[1]');
+select _jsonpath_exists('[1]', 'strict $.[1]');
 select _jsonpath_exists('[1]', '$.[0]');
+select _jsonpath_exists('[1]', '$.[0.3]');
+select _jsonpath_exists('[1]', '$.[0.5]');
+select _jsonpath_exists('[1]', '$.[0.9]');
+select _jsonpath_exists('[1]', '$.[1.2]');
+select _jsonpath_exists('[1]', 'strict $.[1.2]');
 select _jsonpath_exists('{"a": [1,2,3], "b": [3,4,5]}', '$ ? (@.a[*] >  @.b[*])');
 select _jsonpath_exists('{"a": [1,2,3], "b": [3,4,5]}', '$ ? (@.a[*] >= @.b[*])');
 select _jsonpath_exists('{"a": [1,2,3], "b": [3,4,"5"]}', '$ ? (@.a[*] >= @.b[*])');
@@ -1253,6 +1260,7 @@ select _jsonpath_exists('{"a": [1,2,3], "b": [3,4,"5"]}', 'strict $ ? (@.a[*] >=
 select _jsonpath_exists('{"a": [1,2,3], "b": [3,4,null]}', '$ ? (@.a[*] >= @.b[*])');
 select _jsonpath_exists('1', '$ ? ((@ == "1") is unknown)');
 select _jsonpath_exists('1', '$ ? ((@ == 1) is unknown)');
+select _jsonpath_exists('[{"a": 1}, {"a": 2}]', '$[0 to 1] ? (@.a > 1)');
 
 select * from _jsonpath_object('{"a": 12, "b": {"a": 13}}', '$.a');
 select * from _jsonpath_object('{"a": 12, "b": {"a": 13}}', '$.b');
@@ -1265,6 +1273,7 @@ select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', 'lax $.[1].a');
 select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', 'lax $.[2].a');
 select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', 'lax $.[0,1].a');
 select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', 'lax $.[0 to 10].a');
+select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}, "ccc", true]', '$.[2.5 - 1 to @.size() - 2]');
 select * from _jsonpath_object('1', 'lax $[0]');
 select * from _jsonpath_object('1', 'lax $[*]');
 select * from _jsonpath_object('[1]', 'lax $[0]');

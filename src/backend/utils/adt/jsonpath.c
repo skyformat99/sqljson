@@ -147,13 +147,39 @@ flattenJsonPathParseItem(StringInfo buf, JsonPathParseItem *item,
 						 errmsg("@ is not allowed in root expressions")));
 			break;
 		case jpiIndexArray:
-			appendBinaryStringInfo(buf,
-								   (char*)&item->value.array.nelems,
-								   sizeof(item->value.array.nelems));
-			appendBinaryStringInfo(buf,
-								   (char*)item->value.array.elems,
-								   item->value.array.nelems *
-										sizeof(item->value.array.elems[0]));
+			{
+				int32		nelems = item->value.array.nelems;
+				int			offset;
+				int			i;
+
+				appendBinaryStringInfo(buf, (char *) &nelems, sizeof(nelems));
+
+				offset = buf->len;
+
+				appendStringInfoSpaces(buf, sizeof(int32) * 2 * nelems);
+
+				for (i = 0; i < nelems; i++)
+				{
+					int32	   *ppos;
+					int32		topos;
+					int32		frompos =
+						flattenJsonPathParseItem(buf,
+												item->value.array.elems[i].from,
+												true);
+
+					if (item->value.array.elems[i].to)
+						topos = flattenJsonPathParseItem(buf,
+												item->value.array.elems[i].to,
+												true);
+					else
+						topos = 0;
+
+					ppos = (int32 *) &buf->data[offset + i * 2 * sizeof(int32)];
+
+					ppos[0] = frompos;
+					ppos[1] = topos;
+				}
+			}
 			break;
 		case jpiAny:
 			appendBinaryStringInfo(buf,
@@ -401,11 +427,22 @@ printJsonPathItem(StringInfo buf, JsonPathItem *v, bool inKey, bool printBracket
 			if (inKey)
 				appendStringInfoChar(buf, '.');
 			appendStringInfoChar(buf, '[');
-			for(i = 0; i< v->content.array.nelems; i++)
+			for (i = 0; i < v->content.array.nelems; i++)
 			{
+				JsonPathItem from;
+				JsonPathItem to;
+				bool		range = jspGetArraySubscript(v, &from, &to, i);
+
 				if (i)
 					appendStringInfoChar(buf, ',');
-				appendStringInfo(buf, "%d", v->content.array.elems[i]);
+
+				printJsonPathItem(buf, &from, false, false);
+
+				if (range)
+				{
+					appendBinaryStringInfo(buf, " to ", 4);
+					printJsonPathItem(buf, &to, false, false);
+				}
 			}
 			appendStringInfoChar(buf, ']');
 			break;
@@ -494,7 +531,7 @@ jsonpath_out(PG_FUNCTION_ARGS)
 } while(0)								\
 
 #define read_int32_n(v, b, p, n) do {	\
-	(v) = (int32*)((b) + (p));			\
+	(v) = (void *)((b) + (p));			\
 	(p) += sizeof(int32) * (n);			\
 } while(0)								\
 
@@ -579,7 +616,8 @@ jspInitByBuffer(JsonPathItem *v, char *base, int32 pos)
 			break;
 		case jpiIndexArray:
 			read_int32(v->content.array.nelems, base, pos);
-			read_int32_n(v->content.array.elems, base, pos, v->content.array.nelems);
+			read_int32_n(v->content.array.elems, base, pos,
+						 v->content.array.nelems * 2);
 			break;
 		case jpiAny:
 			read_int32(v->content.anybounds.first, base, pos);
@@ -715,6 +753,22 @@ jspGetString(JsonPathItem *v, int32 *len)
 	if (len)
 		*len = v->content.value.datalen;
 	return v->content.value.data;
+}
+
+bool
+jspGetArraySubscript(JsonPathItem *v, JsonPathItem *from, JsonPathItem *to,
+					 int i)
+{
+	Assert(v->type == jpiIndexArray);
+
+	jspInitByBuffer(from, v->base, v->content.array.elems[i].from);
+
+	if (!v->content.array.elems[i].to)
+		return false;
+
+	jspInitByBuffer(to, v->base, v->content.array.elems[i].to);
+
+	return true;
 }
 
 /********************Execute functions for JsonPath***************************/
@@ -1369,6 +1423,37 @@ recursiveAny(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
 	return res;
 }
 
+static JsonPathExecResult
+getArrayIndex(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
+			  int32 *index)
+{
+	JsonbValue *jbv;
+	List	   *found = NIL;
+	JsonbValue	tmp;
+	JsonPathExecResult res = recursiveExecute(cxt, jsp, jb, &found);
+
+	if (jperIsError(res))
+		return res;
+
+	if (list_length(found) != 1)
+		return jperMakeError(ERRCODE_INVALID_JSON_SUBSCRIPT);
+
+	jbv = linitial(found);
+
+	if (JsonbType(jbv) == jbvScalar)
+		jbv = JsonbExtractScalar(jbv->val.binary.data, &tmp);
+
+	if (jbv->type != jbvNumeric)
+		return jperMakeError(ERRCODE_INVALID_JSON_SUBSCRIPT);
+
+	*index = DatumGetInt32(DirectFunctionCall1(numeric_int4,
+							DirectFunctionCall2(numeric_trunc,
+											NumericGetDatum(jbv->val.numeric),
+											Int32GetDatum(0))));
+
+	return jperOk;
+}
+
 /*
  * Main executor function: walks on jsonpath structure and tries to find
  * correspoding parts of jsonb. Note, jsonb and jsonpath values should be
@@ -1546,39 +1631,87 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 		case jpiIndexArray:
 			if (JsonbType(jb) == jbvArray)
 			{
-				JsonbValue		*v;
-				int				i;
+				int			i;
+				int			size = JsonbArraySize(jb);
 
 				hasNext = jspGetNext(jsp, &elem);
 
-				for(i=0; i<jsp->content.array.nelems; i++)
+				for (i = 0; i < jsp->content.array.nelems; i++)
 				{
-					/* TODO for future: array index can be expression */
-					v = getIthJsonbValueFromContainer(jb->val.binary.data,
-													  jsp->content.array.elems[i]);
+					JsonPathItem from;
+					JsonPathItem to;
+					int32		index;
+					int32		index_from;
+					int32		index_to;
+					bool		range = jspGetArraySubscript(jsp, &from, &to, i);
 
-					if (v == NULL)
-						continue;
+					res = getArrayIndex(cxt, &from, jb, &index_from);
 
-					if (hasNext == true)
+					if (jperIsError(res))
+						break;
+
+					if (range)
 					{
-						res = recursiveExecute(cxt, &elem, v, found);
+						res = getArrayIndex(cxt, &to, jb, &index_to);
 
-						if (jperIsError(res) || found == NULL)
+						if (jperIsError(res))
 							break;
-
-						if (res == jperOk && found == NULL)
-								break;
 					}
 					else
+						index_to = index_from;
+
+					if (!cxt->lax &&
+						(index_from < 0 ||
+						 index_from > index_to ||
+						 index_to >= size))
 					{
-						res = jperOk;
-
-						if (found == NULL)
-							break;
-
-						*found = lappend(*found, v);
+						res = jperMakeError(ERRCODE_INVALID_JSON_SUBSCRIPT);
+						break;
 					}
+
+					if (index_from < 0)
+						index_from = 0;
+
+					if (index_to >= size)
+						index_to = size - 1;
+
+					res = jperNotFound;
+
+					for (index = index_from; index <= index_to; index++)
+					{
+						JsonbValue *v =
+							getIthJsonbValueFromContainer(jb->val.binary.data,
+														  (uint32) index);
+
+						if (v == NULL)
+							continue;
+
+						if (hasNext)
+						{
+							res = recursiveExecute(cxt, &elem, v, found);
+
+							if (jperIsError(res))
+								break;
+
+							if (res == jperOk && !found)
+								break;
+						}
+						else
+						{
+							res = jperOk;
+
+							if (!found)
+								break;
+
+							*found = lappend(*found, v);
+						}
+					}
+
+					if (jperIsError(res))
+						break;
+
+					if (res == jperOk && !found)
+						break;
 				}
 			}
 			else if (found)
