@@ -2954,6 +2954,18 @@ select 'true.type()'::jsonpath;
  true.type()
 (1 row)
 
+select '$ ? (@ starts with "abc")'::jsonpath;
+        jsonpath         
+-------------------------
+ $?(@ starts with "abc")
+(1 row)
+
+select '$ ? (@ starts with $var)'::jsonpath;
+         jsonpath         
+--------------------------
+ $?(@ starts with $"var")
+(1 row)
+
 select '$ ? (a < 1)'::jsonpath;
   jsonpath   
 -------------
@@ -4092,6 +4104,54 @@ select _jsonpath_object('"1.23"', '$.double()');
 
 select _jsonpath_object('"1.23aaa"', '$.double()');
 ERROR:  Non-numeric SQL/JSON item
+select _jsonpath_object('["", "a", "abc", "abcabc"]', '$[*] ? (@ starts with "abc")');
+ _jsonpath_object 
+------------------
+ "abc"
+ "abcabc"
+(2 rows)
+
+select _jsonpath_object('["", "a", "abc", "abcabc"]', 'strict $ ? (@[*] starts with "abc")');
+      _jsonpath_object      
+----------------------------
+ ["", "a", "abc", "abcabc"]
+(1 row)
+
+select _jsonpath_object('["", "a", "abd", "abdabc"]', 'strict $ ? (@[*] starts with "abc")');
+ _jsonpath_object 
+------------------
+(0 rows)
+
+select _jsonpath_object('["abc", "abcabc", null, 1]', 'strict $ ? (@[*] starts with "abc")');
+ _jsonpath_object 
+------------------
+(0 rows)
+
+select _jsonpath_object('["abc", "abcabc", null, 1]', 'strict $ ? ((@[*] starts with "abc") is unknown)');
+      _jsonpath_object      
+----------------------------
+ ["abc", "abcabc", null, 1]
+(1 row)
+
+select _jsonpath_object('[[null, 1, "abc", "abcabc"]]', 'lax $ ? (@[*] starts with "abc")');
+      _jsonpath_object      
+----------------------------
+ [null, 1, "abc", "abcabc"]
+(1 row)
+
+select _jsonpath_object('[[null, 1, "abd", "abdabc"]]', 'lax $ ? ((@[*] starts with "abc") is unknown)');
+      _jsonpath_object      
+----------------------------
+ [null, 1, "abd", "abdabc"]
+(1 row)
+
+select _jsonpath_object('[null, 1, "abd", "abdabc"]', 'lax $[*] ? ((@ starts with "abc") is unknown)');
+ _jsonpath_object 
+------------------
+ null
+ 1
+(2 rows)
+
 --test ternary logic
 select
 	x, y,

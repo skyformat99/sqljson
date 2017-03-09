@@ -1187,6 +1187,9 @@ select '"aaa".type()'::jsonpath;
 select 'aaa.type()'::jsonpath;
 select 'true.type()'::jsonpath;
 
+select '$ ? (@ starts with "abc")'::jsonpath;
+select '$ ? (@ starts with $var)'::jsonpath;
+
 select '$ ? (a < 1)'::jsonpath;
 select '$ ? (a < -1)'::jsonpath;
 select '$ ? (a < +1)'::jsonpath;
@@ -1393,6 +1396,14 @@ select _jsonpath_object('1.23', '$.double()');
 select _jsonpath_object('"1.23"', '$.double()');
 select _jsonpath_object('"1.23aaa"', '$.double()');
 
+select _jsonpath_object('["", "a", "abc", "abcabc"]', '$[*] ? (@ starts with "abc")');
+select _jsonpath_object('["", "a", "abc", "abcabc"]', 'strict $ ? (@[*] starts with "abc")');
+select _jsonpath_object('["", "a", "abd", "abdabc"]', 'strict $ ? (@[*] starts with "abc")');
+select _jsonpath_object('["abc", "abcabc", null, 1]', 'strict $ ? (@[*] starts with "abc")');
+select _jsonpath_object('["abc", "abcabc", null, 1]', 'strict $ ? ((@[*] starts with "abc") is unknown)');
+select _jsonpath_object('[[null, 1, "abc", "abcabc"]]', 'lax $ ? (@[*] starts with "abc")');
+select _jsonpath_object('[[null, 1, "abd", "abdabc"]]', 'lax $ ? ((@[*] starts with "abc") is unknown)');
+select _jsonpath_object('[null, 1, "abd", "abdabc"]', 'lax $[*] ? ((@ starts with "abc") is unknown)');
 
 --test ternary logic
 select
