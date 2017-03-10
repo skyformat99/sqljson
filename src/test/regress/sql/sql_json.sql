@@ -1186,6 +1186,8 @@ select '1.type()'::jsonpath;
 select '"aaa".type()'::jsonpath;
 select 'aaa.type()'::jsonpath;
 select 'true.type()'::jsonpath;
+select '$.datetime()'::jsonpath;
+select '$.datetime("datetime template")'::jsonpath;
 
 select '$ ? (@ starts with "abc")'::jsonpath;
 select '$ ? (@ starts with $var)'::jsonpath;
@@ -1404,6 +1406,140 @@ select _jsonpath_object('["abc", "abcabc", null, 1]', 'strict $ ? ((@[*] starts 
 select _jsonpath_object('[[null, 1, "abc", "abcabc"]]', 'lax $ ? (@[*] starts with "abc")');
 select _jsonpath_object('[[null, 1, "abd", "abdabc"]]', 'lax $ ? ((@[*] starts with "abc") is unknown)');
 select _jsonpath_object('[null, 1, "abd", "abdabc"]', 'lax $[*] ? ((@ starts with "abc") is unknown)');
+
+select _jsonpath_object('null', '$.datetime()');
+select _jsonpath_object('true', '$.datetime()');
+select _jsonpath_object('1', '$.datetime()');
+select _jsonpath_object('[]', '$.datetime()');
+select _jsonpath_object('{}', '$.datetime()');
+select _jsonpath_object('""', '$.datetime()');
+
+select _jsonpath_object('"10-03-2017"',       '$.datetime("dd-mm-yyyy")');
+select _jsonpath_object('"10-03-2017"',       '$.datetime("dd-mm-yyyy").type()');
+select _jsonpath_object('"10-03-2017 12:34"', '$.datetime("dd-mm-yyyy")');
+select _jsonpath_object('"10-03-2017 12:34"', '$.datetime("dd-mm-yyyy").type()');
+
+select _jsonpath_object('"10-03-2017 12:34"', '       $.datetime("dd-mm-yyyy HH24:MI").type()');
+select _jsonpath_object('"10-03-2017 12:34 +05:20"', '$.datetime("dd-mm-yyyy HH24:MI TZH:TZM").type()');
+select _jsonpath_object('"12:34:56"',                '$.datetime("HH24:MI:SS").type()');
+select _jsonpath_object('"12:34:56 +05:20"',         '$.datetime("HH24:MI:SS TZH:TZM").type()');
+
+set time zone '+00';
+
+select _jsonpath_object('"10-03-2017 12:34"',        '$.datetime("dd-mm-yyyy HH24:MI")');
+select _jsonpath_object('"10-03-2017 12:34"',        '$.datetime("dd-mm-yyyy HH24:MI TZH")');
+select _jsonpath_object('"10-03-2017 12:34 +05"',    '$.datetime("dd-mm-yyyy HH24:MI TZH")');
+select _jsonpath_object('"10-03-2017 12:34 -05"',    '$.datetime("dd-mm-yyyy HH24:MI TZH")');
+select _jsonpath_object('"10-03-2017 12:34 +05:20"', '$.datetime("dd-mm-yyyy HH24:MI TZH:TZM")');
+select _jsonpath_object('"10-03-2017 12:34 -05:20"', '$.datetime("dd-mm-yyyy HH24:MI TZH:TZM")');
+select _jsonpath_object('"12:34"',       '$.datetime("HH24:MI")');
+select _jsonpath_object('"12:34"',       '$.datetime("HH24:MI TZH")');
+select _jsonpath_object('"12:34 +05"',    '$.datetime("HH24:MI TZH")');
+select _jsonpath_object('"12:34 -05"',    '$.datetime("HH24:MI TZH")');
+select _jsonpath_object('"12:34 +05:20"', '$.datetime("HH24:MI TZH:TZM")');
+select _jsonpath_object('"12:34 -05:20"', '$.datetime("HH24:MI TZH:TZM")');
+
+set time zone '+10';
+
+select _jsonpath_object('"10-03-2017 12:34"',       '$.datetime("dd-mm-yyyy HH24:MI")');
+select _jsonpath_object('"10-03-2017 12:34"',        '$.datetime("dd-mm-yyyy HH24:MI TZH")');
+select _jsonpath_object('"10-03-2017 12:34 +05"',    '$.datetime("dd-mm-yyyy HH24:MI TZH")');
+select _jsonpath_object('"10-03-2017 12:34 -05"',    '$.datetime("dd-mm-yyyy HH24:MI TZH")');
+select _jsonpath_object('"10-03-2017 12:34 +05:20"', '$.datetime("dd-mm-yyyy HH24:MI TZH:TZM")');
+select _jsonpath_object('"10-03-2017 12:34 -05:20"', '$.datetime("dd-mm-yyyy HH24:MI TZH:TZM")');
+select _jsonpath_object('"12:34"',        '$.datetime("HH24:MI")');
+select _jsonpath_object('"12:34"',        '$.datetime("HH24:MI TZH")');
+select _jsonpath_object('"12:34 +05"',    '$.datetime("HH24:MI TZH")');
+select _jsonpath_object('"12:34 -05"',    '$.datetime("HH24:MI TZH")');
+select _jsonpath_object('"12:34 +05:20"', '$.datetime("HH24:MI TZH:TZM")');
+select _jsonpath_object('"12:34 -05:20"', '$.datetime("HH24:MI TZH:TZM")');
+
+set time zone default;
+
+select _jsonpath_object('"2017-03-10"', '$.datetime().type()');
+select _jsonpath_object('"2017-03-10"', '$.datetime()');
+select _jsonpath_object('"2017-03-10 12:34:56"', '$.datetime().type()');
+select _jsonpath_object('"2017-03-10 12:34:56"', '$.datetime()');
+select _jsonpath_object('"2017-03-10 12:34:56 +3"', '$.datetime().type()');
+select _jsonpath_object('"2017-03-10 12:34:56 +3"', '$.datetime()');
+select _jsonpath_object('"2017-03-10 12:34:56 +3:10"', '$.datetime().type()');
+select _jsonpath_object('"2017-03-10 12:34:56 +3:10"', '$.datetime()');
+select _jsonpath_object('"12:34:56"', '$.datetime().type()');
+select _jsonpath_object('"12:34:56"', '$.datetime()');
+select _jsonpath_object('"12:34:56 +3"', '$.datetime().type()');
+select _jsonpath_object('"12:34:56 +3"', '$.datetime()');
+select _jsonpath_object('"12:34:56 +3:10"', '$.datetime().type()');
+select _jsonpath_object('"12:34:56 +3:10"', '$.datetime()');
+
+-- date comparison
+select _jsonpath_object(
+	'["10.03.2017", "11.03.2017", "09.03.2017"]',
+	'$[*].datetime("dd.mm.yyyy") ? (@ == "10.03.2017".datetime("dd.mm.yyyy"))'
+);
+select _jsonpath_object(
+	'["10.03.2017", "11.03.2017", "09.03.2017"]',
+	'$[*].datetime("dd.mm.yyyy") ? (@ >= "10.03.2017".datetime("dd.mm.yyyy"))'
+);
+select _jsonpath_object(
+	'["10.03.2017", "11.03.2017", "09.03.2017"]',
+	'$[*].datetime("dd.mm.yyyy") ? (@ <  "10.03.2017".datetime("dd.mm.yyyy"))'
+);
+
+-- time comparison
+select _jsonpath_object(
+	'["12:34", "12:35", "12:36"]',
+	'$[*].datetime("HH24:MI") ? (@ == "12:35".datetime("HH24:MI"))'
+);
+select _jsonpath_object(
+	'["12:34", "12:35", "12:36"]',
+	'$[*].datetime("HH24:MI") ? (@ >= "12:35".datetime("HH24:MI"))'
+);
+select _jsonpath_object(
+	'["12:34", "12:35", "12:36"]',
+	'$[*].datetime("HH24:MI") ? (@ <  "12:35".datetime("HH24:MI"))'
+);
+
+-- timetz comparison
+select _jsonpath_object(
+	'["12:34 +1", "12:35 +1", "12:36 +1", "12:35 +2", "12:35 -2"]',
+	'$[*].datetime("HH24:MI TZH") ? (@ == "12:35 +1".datetime("HH24:MI TZH"))'
+);
+select _jsonpath_object(
+	'["12:34 +1", "12:35 +1", "12:36 +1", "12:35 +2", "12:35 -2"]',
+	'$[*].datetime("HH24:MI TZH") ? (@ >= "12:35 +1".datetime("HH24:MI TZH"))'
+);
+select _jsonpath_object(
+	'["12:34 +1", "12:35 +1", "12:36 +1", "12:35 +2", "12:35 -2"]',
+	'$[*].datetime("HH24:MI TZH") ? (@ <  "12:35 +1".datetime("HH24:MI TZH"))'
+);
+
+-- timestamp comparison
+select _jsonpath_object(
+	'["10.03.2017 12:34", "10.03.2017 12:35", "10.03.2017 12:36"]',
+	'$[*].datetime("dd.mm.yyyy HH24:MI") ? (@ == "10.03.2017 12:35".datetime("dd.mm.yyyy HH24:MI"))'
+);
+select _jsonpath_object(
+	'["10.03.2017 12:34", "10.03.2017 12:35", "10.03.2017 12:36"]',
+	'$[*].datetime("dd.mm.yyyy HH24:MI") ? (@ >= "10.03.2017 12:35".datetime("dd.mm.yyyy HH24:MI"))'
+);
+select _jsonpath_object(
+	'["10.03.2017 12:34", "10.03.2017 12:35", "10.03.2017 12:36"]',
+	'$[*].datetime("dd.mm.yyyy HH24:MI") ? (@ < "10.03.2017 12:35".datetime("dd.mm.yyyy HH24:MI"))'
+);
+
+-- timestamptz compasison
+select _jsonpath_object(
+	'["10.03.2017 12:34 +1", "10.03.2017 12:35 +1", "10.03.2017 12:36 +1", "10.03.2017 12:35 +2", "10.03.2017 12:35 -2"]',
+	'$[*].datetime("dd.mm.yyyy HH24:MI TZH") ? (@ == "10.03.2017 12:35 +1".datetime("dd.mm.yyyy HH24:MI TZH"))'
+);
+select _jsonpath_object(
+	'["10.03.2017 12:34 +1", "10.03.2017 12:35 +1", "10.03.2017 12:36 +1", "10.03.2017 12:35 +2", "10.03.2017 12:35 -2"]',
+	'$[*].datetime("dd.mm.yyyy HH24:MI TZH") ? (@ >= "10.03.2017 12:35 +1".datetime("dd.mm.yyyy HH24:MI TZH"))'
+);
+select _jsonpath_object(
+	'["10.03.2017 12:34 +1", "10.03.2017 12:35 +1", "10.03.2017 12:36 +1", "10.03.2017 12:35 +2", "10.03.2017 12:35 -2"]',
+	'$[*].datetime("dd.mm.yyyy HH24:MI TZH") ? (@ < "10.03.2017 12:35 +1".datetime("dd.mm.yyyy HH24:MI TZH"))'
+);
 
 --test ternary logic
 select
