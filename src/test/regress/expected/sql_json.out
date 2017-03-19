@@ -1687,7 +1687,7 @@ CREATE TABLE test_json_constraints (
 	CONSTRAINT test_json_constraint1
 		CHECK (js IS JSON)
 	CONSTRAINT test_json_constraint2
-		CHECK (JSON_EXISTS(js FORMAT JSONB, '$.a' PASSING i + 5 AS int, i::text AS txt))
+		CHECK (JSON_EXISTS(js FORMAT JSONB, '$.a' PASSING i + 5 AS int, i::text AS txt, array[1,2,3] as arr))
 	CONSTRAINT test_json_constraint3
 		CHECK (JSON_VALUE(js::jsonb, '$.a' RETURNING int DEFAULT ('12' || i)::int ON EMPTY ERROR ON ERROR) > i)
 	CONSTRAINT test_json_constraint4
@@ -1702,7 +1702,7 @@ CREATE TABLE test_json_constraints (
  x      | jsonb   |           |          | JSON_QUERY('[1, 2]'::jsonb, '$.[*]' RETURNING jsonb WITH UNCONDITIONAL WRAPPER NULL ON EMPTY NULL ON ERROR)
 Check constraints:
     "test_json_constraint1" CHECK (pg_catalog.json_is_valid(js, 'any'::text, false))
-    "test_json_constraint2" CHECK (JSON_EXISTS(js FORMAT JSONB, '$."a"' PASSING to_jsonb(i + 5) AS int, i::text AS txt FALSE ON ERROR))
+    "test_json_constraint2" CHECK (JSON_EXISTS(js FORMAT JSONB, '$."a"' PASSING i + 5 AS int, i::text AS txt, to_jsonb(ARRAY[1, 2, 3]) AS arr FALSE ON ERROR))
     "test_json_constraint3" CHECK ((JSON_VALUE(js::jsonb, '$."a"' RETURNING integer DEFAULT ('12'::text || i)::integer ON EMPTY ERROR ON ERROR)) > i)
     "test_json_constraint4" CHECK ((JSON_QUERY(js FORMAT JSONB, '$."a"' RETURNING jsonb WITH CONDITIONAL WRAPPER NULL ON EMPTY EMPTY OBJECT ON ERROR)) < '[10]'::jsonb)
 
@@ -1712,7 +1712,7 @@ WHERE constraint_name LIKE 'test_json_constraint%';
                                                              check_clause                                                              
 ---------------------------------------------------------------------------------------------------------------------------------------
  (pg_catalog.json_is_valid(js, 'any'::text, false))
- (JSON_EXISTS(js FORMAT JSONB, '$."a"' PASSING to_jsonb((i + 5)) AS int, (i)::text AS txt FALSE ON ERROR))
+ (JSON_EXISTS(js FORMAT JSONB, '$."a"' PASSING (i + 5) AS int, (i)::text AS txt, to_jsonb(ARRAY[1, 2, 3]) AS arr FALSE ON ERROR))
  ((JSON_VALUE((js)::jsonb, '$."a"' RETURNING integer DEFAULT (('12'::text || i))::integer ON EMPTY ERROR ON ERROR) > i))
  ((JSON_QUERY(js FORMAT JSONB, '$."a"' RETURNING jsonb WITH CONDITIONAL WRAPPER NULL ON EMPTY EMPTY OBJECT ON ERROR) < '[10]'::jsonb))
 (4 rows)

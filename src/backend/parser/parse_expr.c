@@ -3567,6 +3567,16 @@ transformJsonValueExprExt(ParseState *pstate, JsonValueExpr *ve,
 			case TEXTOID:
 			case NUMERICOID:
 			case BOOLOID:
+			case INT2OID:
+			case INT4OID:
+			case INT8OID:
+			case FLOAT4OID:
+			case FLOAT8OID:
+			case DATEOID:
+			case TIMEOID:
+			case TIMETZOID:
+			case TIMESTAMPOID:
+			case TIMESTAMPTZOID:
 				return expr;
 		}
 

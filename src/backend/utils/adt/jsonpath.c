@@ -867,11 +867,47 @@ computeJsonPathVariable(JsonPathItem *variable, List *vars, JsonbValue *value)
 			value->type = jbvNumeric;
 			value->val.numeric = DatumGetNumeric(computedValue);
 			break;
+			break;
+		case INT2OID:
+			value->type = jbvNumeric;
+			value->val.numeric = DatumGetNumeric(DirectFunctionCall1(
+												int2_numeric, computedValue));
+			break;
+		case INT4OID:
+			value->type = jbvNumeric;
+			value->val.numeric = DatumGetNumeric(DirectFunctionCall1(
+												int4_numeric, computedValue));
+			break;
+		case INT8OID:
+			value->type = jbvNumeric;
+			value->val.numeric = DatumGetNumeric(DirectFunctionCall1(
+												int8_numeric, computedValue));
+			break;
+		case FLOAT4OID:
+			value->type = jbvNumeric;
+			value->val.numeric = DatumGetNumeric(DirectFunctionCall1(
+												float4_numeric, computedValue));
+			break;
+		case FLOAT8OID:
+			value->type = jbvNumeric;
+			value->val.numeric = DatumGetNumeric(DirectFunctionCall1(
+												float4_numeric, computedValue));
+			break;
 		case TEXTOID:
 		case VARCHAROID:
 			value->type = jbvString;
 			value->val.string.val = VARDATA_ANY(computedValue);
 			value->val.string.len = VARSIZE_ANY_EXHDR(computedValue);
+			break;
+		case DATEOID:
+		case TIMEOID:
+		case TIMETZOID:
+		case TIMESTAMPOID:
+		case TIMESTAMPTZOID:
+			value->type = jbvDatetime;
+			value->val.datetime.typid = var->typid;
+			value->val.datetime.typmod = var->typmod;
+			value->val.datetime.value = computedValue;
 			break;
 		case JSONBOID:
 			{
