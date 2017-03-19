@@ -567,7 +567,7 @@ CREATE TABLE test_json_constraints (
 	CONSTRAINT test_json_constraint1
 		CHECK (js IS JSON)
 	CONSTRAINT test_json_constraint2
-		CHECK (JSON_EXISTS(js FORMAT JSONB, '$.a' PASSING i + 5 AS int, i::text AS txt))
+		CHECK (JSON_EXISTS(js FORMAT JSONB, '$.a' PASSING i + 5 AS int, i::text AS txt, array[1,2,3] as arr))
 	CONSTRAINT test_json_constraint3
 		CHECK (JSON_VALUE(js::jsonb, '$.a' RETURNING int DEFAULT ('12' || i)::int ON EMPTY ERROR ON ERROR) > i)
 	CONSTRAINT test_json_constraint4
