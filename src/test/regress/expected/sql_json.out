@@ -2996,6 +2996,36 @@ select '$ ? (@ starts with $var)'::jsonpath;
  $?(@ starts with $"var")
 (1 row)
 
+select '($).a.b'::jsonpath;
+ jsonpath  
+-----------
+ $."a"."b"
+(1 row)
+
+select '($.a.b).c.d'::jsonpath;
+     jsonpath      
+-------------------
+ $."a"."b"."c"."d"
+(1 row)
+
+select '($.a.b + -$.x.y).c.d'::jsonpath;
+             jsonpath             
+----------------------------------
+ ($."a"."b" + -$."x"."y")."c"."d"
+(1 row)
+
+select '(-+$.a.b).c.d'::jsonpath;
+        jsonpath         
+-------------------------
+ (-(+$."a"."b"))."c"."d"
+(1 row)
+
+select '1 + ($.a.b + 2).c.d'::jsonpath;
+           jsonpath            
+-------------------------------
+ (1 + ($."a"."b" + 2)."c"."d")
+(1 row)
+
 select '$ ? (a < 1)'::jsonpath;
   jsonpath   
 -------------
@@ -4049,6 +4079,18 @@ select _jsonpath_object('null', 'aaa.type()');
  _jsonpath_object 
 ------------------
  "string"
+(1 row)
+
+select _jsonpath_object('{"a": 2}', '($.a - 5).abs() + 10');
+ _jsonpath_object 
+------------------
+ 13
+(1 row)
+
+select _jsonpath_object('{"a": 2.5}', '-($.a * $.a).floor() + 10');
+ _jsonpath_object 
+------------------
+ 4
 (1 row)
 
 select _jsonpath_object('[1,null,true,"11",[],[1],[1,2,3],{},{"a":1,"b":2}]', 'strict $[*].size()');
