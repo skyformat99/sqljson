@@ -1192,6 +1192,12 @@ select '$.datetime("datetime template")'::jsonpath;
 select '$ ? (@ starts with "abc")'::jsonpath;
 select '$ ? (@ starts with $var)'::jsonpath;
 
+select '($).a.b'::jsonpath;
+select '($.a.b).c.d'::jsonpath;
+select '($.a.b + -$.x.y).c.d'::jsonpath;
+select '(-+$.a.b).c.d'::jsonpath;
+select '1 + ($.a.b + 2).c.d'::jsonpath;
+
 select '$ ? (a < 1)'::jsonpath;
 select '$ ? (a < -1)'::jsonpath;
 select '$ ? (a < +1)'::jsonpath;
@@ -1373,6 +1379,9 @@ select _jsonpath_object('null', 'true.type()');
 select _jsonpath_object('null', '123.type()');
 select _jsonpath_object('null', '"123".type()');
 select _jsonpath_object('null', 'aaa.type()');
+
+select _jsonpath_object('{"a": 2}', '($.a - 5).abs() + 10');
+select _jsonpath_object('{"a": 2.5}', '-($.a * $.a).floor() + 10');
 
 select _jsonpath_object('[1,null,true,"11",[],[1],[1,2,3],{},{"a":1,"b":2}]', '$[*].size()');
 select _jsonpath_object('[1,null,true,"11",[],[1],[1,2,3],{},{"a":1,"b":2}]', 'lax $[*].size()');
