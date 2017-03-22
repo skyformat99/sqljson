@@ -1418,10 +1418,14 @@ select _jsonpath_object('[null, 1, "abd", "abdabc"]', 'lax $[*] ? ((@ starts wit
 
 select _jsonpath_object('null', '$.datetime()');
 select _jsonpath_object('true', '$.datetime()');
-select _jsonpath_object('1', '$.datetime()');
 select _jsonpath_object('[]', '$.datetime()');
 select _jsonpath_object('{}', '$.datetime()');
 select _jsonpath_object('""', '$.datetime()');
+
+-- Standard extension: UNIX epoch to timestamptz
+select _jsonpath_object('0', '$.datetime()');
+select _jsonpath_object('0', '$.datetime().type()');
+select _jsonpath_object('1490216035.5', '$.datetime()');
 
 select _jsonpath_object('"10-03-2017"',       '$.datetime("dd-mm-yyyy")');
 select _jsonpath_object('"10-03-2017"',       '$.datetime("dd-mm-yyyy").type()');
