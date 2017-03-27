@@ -682,7 +682,7 @@ jspGetArg(JsonPathItem *v, JsonPathItem *a)
 bool
 jspGetNext(JsonPathItem *v, JsonPathItem *a)
 {
-	if (v->nextPos > 0)
+	if (jspHasNext(v))
 	{
 		Assert(
 			v->type == jpiString ||
@@ -1244,6 +1244,43 @@ makeCompare(int32 op, JsonbValue *jb1, JsonbValue *jb2)
 	return res ? jperOk : jperNotFound;
 }
 
+static JsonbValue *
+copyJsonbValue(JsonbValue *src)
+{
+	JsonbValue	*dst = palloc(sizeof(*dst));
+
+	*dst = *src;
+
+	return dst;
+}
+
+static inline JsonPathExecResult
+recursiveExecuteNext(JsonPathExecContext *cxt,
+					 JsonPathItem *cur, JsonPathItem *next,
+					 JsonbValue *v, List **found, bool copy)
+{
+	JsonPathItem elem;
+	bool		hasNext;
+
+	if (!cur)
+		hasNext = next != NULL;
+	else if (next)
+		hasNext = jspHasNext(cur);
+	else
+	{
+		next = &elem;
+		hasNext = jspGetNext(cur, next);
+	}
+
+	if (hasNext)
+		return recursiveExecute(cxt, next, v, found);
+
+	if (found)
+		*found = lappend(*found, copy ? copyJsonbValue(v) : v);
+
+	return jperOk;
+}
+
 static JsonPathExecResult
 executeExpr(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb)
 {
@@ -1397,22 +1434,7 @@ executeBinaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
 	lval->type = jbvNumeric;
 	lval->val.numeric = DatumGetNumeric(res);
 
-	if (hasNext)
-		return recursiveExecute(cxt, &elem, lval, found);
-
-	*found = lappend(*found, lval);
-
-	return jperOk;
-}
-
-static JsonbValue *
-copyJsonbValue(JsonbValue *src)
-{
-	JsonbValue	*dst = palloc(sizeof(*dst));
-
-	*dst = *src;
-
-	return dst;
+	return recursiveExecuteNext(cxt, jsp, &elem, lval, found, false);
 }
 
 static JsonPathExecResult
@@ -1420,6 +1442,7 @@ executeUnaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
 					   JsonbValue *jb, List **found)
 {
 	JsonPathExecResult jper;
+	JsonPathExecResult jper2;
 	JsonPathItem elem;
 	List	   *seq = NIL;
 	ListCell   *lc;
@@ -1438,10 +1461,9 @@ executeUnaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
 	foreach(lc, seq)
 	{
 		JsonbValue *val = lfirst(lc);
-		JsonbValue	valbuf;
 
 		if (JsonbType(val) == jbvScalar)
-			val = JsonbExtractScalar(val->val.binary.data, &valbuf);
+			JsonbExtractScalar(val->val.binary.data, val);
 
 		if (val->type == jbvNumeric)
 		{
@@ -1453,8 +1475,6 @@ executeUnaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
 
 		if (val->type != jbvNumeric)
 			return jperMakeError(ERRCODE_JSON_NUMBER_NOT_FOUND);
-
-		val = copyJsonbValue(val);
 
 		switch (jsp->type)
 		{
@@ -1469,24 +1489,15 @@ executeUnaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
 				elog(ERROR, "unknown jsonpath arithmetic operation %d", jsp->type);
 		}
 
-		if (hasNext)
-		{
-			JsonPathExecResult jper2 = recursiveExecute(cxt, &elem, val, found);
+		jper2 = recursiveExecuteNext(cxt, jsp, &elem, val, found, false);
 
-			if (jperIsError(jper2))
-				return jper2;
+		if (jperIsError(jper2))
+			return jper2;
 
-			if (jper2 == jperOk)
-			{
-				if (!found)
-					return jperOk;
-				jper = jperOk;
-			}
-		}
-		else
+		if (jper2 == jperOk)
 		{
-			Assert(found);
-			*found = lappend(*found, val);
+			if (!found)
+				return jperOk;
 			jper = jperOk;
 		}
 	}
@@ -1530,24 +1541,21 @@ recursiveAny(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
 			if (level >= first)
 			{
 				/* check expression */
-				if (jsp)
-				{
-					res = recursiveExecute(cxt, jsp, &v, found);
-					if (res == jperOk && !found)
-						break;
-				}
-				else
-				{
-					res = jperOk;
-					if (!found)
-						break;
-					*found = lappend(*found, copyJsonbValue(&v));
-				}
+				res = recursiveExecuteNext(cxt, NULL, jsp, &v, found, true);
+
+				if (jperIsError(res))
+					break;
+
+				if (res == jperOk && !found)
+					break;
 			}
 
 			if (level < last && v.type == jbvBinary)
 			{
 				res = recursiveAny(cxt, jsp, &v, found, level + 1, first, last);
+
+				if (jperIsError(res))
+					break;
 
 				if (res == jperOk && found == NULL)
 					break;
@@ -1768,19 +1776,10 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 
 				if (v != NULL)
 				{
-					if (jspGetNext(jsp, &elem))
-					{
-						res = recursiveExecute(cxt, &elem, v, found);
-						pfree(v);
-					}
-					else
-					{
-						res = jperOk;
-						if (found)
-							*found = lappend(*found, v);
-						else
-							pfree(v);
-					}
+					res = recursiveExecuteNext(cxt, jsp, NULL, v, found, false);
+
+					if (jspHasNext(jsp) || !found)
+						pfree(v); /* free value if it was not added to found list */
 				}
 				else if (!cxt->lax && found)
 					res = jperMakeError(ERRCODE_JSON_MEMBER_NOT_FOUND);
@@ -1792,36 +1791,29 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 			jb = cxt->root;
 			/* fall through */
 		case jpiCurrent:
-			if (!jspGetNext(jsp, &elem))
 			{
-				/* we are last in chain of node */
-				res = jperOk;
-				if (found)
+				JsonbValue *v;
+				JsonbValue	vbuf;
+				bool		copy = true;
+
+				if (JsonbType(jb) == jbvScalar)
 				{
-					JsonbValue *v;
-
-					if (JsonbType(jb) == jbvScalar)
-						v = JsonbExtractScalar(jb->val.binary.data,
-											   palloc(sizeof(*v)));
+					if (jspHasNext(jsp))
+						v = &vbuf;
 					else
-						v = copyJsonbValue(jb);
+					{
+						v = palloc(sizeof(*v));
+						copy = false;
+					}
 
-					*found = lappend(*found, v);
+					JsonbExtractScalar(jb->val.binary.data, v);
 				}
-			}
-			else if (JsonbType(jb) == jbvScalar)
-			{
-				JsonbValue	v;
+				else
+					v = jb;
 
-				JsonbExtractScalar(jb->val.binary.data, &v);
-
-				res = recursiveExecute(cxt, &elem, &v, found);
+				res = recursiveExecuteNext(cxt, jsp, NULL, v, found, copy);
+				break;
 			}
-			else
-			{
-				res = recursiveExecute(cxt, &elem, jb, found);
-			}
-			break;
 		case jpiAnyArray:
 			if (JsonbType(jb) == jbvArray)
 			{
@@ -1836,25 +1828,13 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 				{
 					if (r == WJB_ELEM)
 					{
-						if (hasNext == true)
-						{
-							res = recursiveExecute(cxt, &elem, &v, found);
+						res = recursiveExecuteNext(cxt, jsp, &elem, &v, found, true);
 
-							if (jperIsError(res))
-								break;
+						if (jperIsError(res))
+							break;
 
-							if (res == jperOk && found == NULL)
-								break;
-						}
-						else
-						{
-							res = jperOk;
-
-							if (found == NULL)
-								break;
-
-							*found = lappend(*found, copyJsonbValue(&v));
-						}
+						if (res == jperOk && !found)
+							break;
 					}
 				}
 			}
@@ -1923,25 +1903,13 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 						if (v == NULL)
 							continue;
 
-						if (hasNext)
-						{
-							res = recursiveExecute(cxt, &elem, v, found);
+						res = recursiveExecuteNext(cxt, jsp, &elem, v, found, false);
 
-							if (jperIsError(res))
-								break;
+						if (jperIsError(res))
+							break;
 
-							if (res == jperOk && !found)
-								break;
-						}
-						else
-						{
-							res = jperOk;
-
-							if (!found)
-								break;
-
-							*found = lappend(*found, v);
-						}
+						if (res == jperOk && !found)
+							break;
 					}
 
 					if (jperIsError(res))
@@ -1984,13 +1952,7 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 				lastjbv->val.numeric = DatumGetNumeric(DirectFunctionCall1(
 											int4_numeric, Int32GetDatum(last)));
 
-				if (hasNext)
-					res = recursiveExecute(cxt, &elem, lastjbv, found);
-				else
-				{
-					res = jperOk;
-					*found = lappend(*found, lastjbv);
-				}
+				res = recursiveExecuteNext(cxt, jsp, &elem, lastjbv, found, hasNext);
 			}
 			break;
 		case jpiAnyKey:
@@ -2007,25 +1969,13 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 				{
 					if (r == WJB_VALUE)
 					{
-						if (hasNext == true)
-						{
-							res = recursiveExecute(cxt, &elem, &v, found);
+						res = recursiveExecuteNext(cxt, jsp, &elem, &v, found, true);
 
-							if (jperIsError(res))
-								break;
+						if (jperIsError(res))
+							break;
 
-							if (res == jperOk && found == NULL)
-								break;
-						}
-						else
-						{
-							res = jperOk;
-
-							if (found == NULL)
-								break;
-
-							*found = lappend(*found, copyJsonbValue(&v));
-						}
+						if (res == jperOk && !found)
+							break;
 					}
 				}
 			}
@@ -2056,10 +2006,8 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 			res = recursiveExecute(cxt, &elem, jb, NULL);
 			if (res != jperOk)
 				res = jperNotFound;
-			else if (jspGetNext(jsp, &elem))
-				res = recursiveExecute(cxt, &elem, jb, found);
-			else if (found)
-				*found = lappend(*found, copyJsonbValue(jb));
+			else
+				res = recursiveExecuteNext(cxt, jsp, NULL, jb, found, true);
 			break;
 		case jpiAny:
 		{
@@ -2068,19 +2016,10 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 			/* first try without any intermediate steps */
 			if (jsp->content.anybounds.first == 0)
 			{
-				if (hasNext)
-				{
-					res = recursiveExecute(cxt, &elem, jb, found);
-					if (res == jperOk && !found)
+				res = recursiveExecuteNext(cxt, jsp, &elem, jb, found, true);
+
+				if (res == jperOk && !found)
 						break;
-				}
-				else
-				{
-					res = jperOk;
-					if (!found)
-						break;
-					*found = lappend(*found, copyJsonbValue(jb));
-				}
 			}
 
 			if (jb->type == jbvBinary)
@@ -2099,21 +2038,22 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 		case jpiNumeric:
 		case jpiString:
 		case jpiVariable:
-			if (jspGetNext(jsp, &elem))
 			{
-				JsonbValue jbv;
-				computeJsonPathItem(cxt, jsp, &jbv);
-				res = recursiveExecute(cxt, &elem, &jbv, found);
-			}
-			else
-			{
-				res = jperOk;
-				if (found)
+				JsonbValue	vbuf;
+				JsonbValue *v;
+				bool		hasNext = jspGetNext(jsp, &elem);
+
+				if (!hasNext && !found)
 				{
-					JsonbValue *jbv = palloc(sizeof(*jbv));
-					computeJsonPathItem(cxt, jsp, jbv);
-					*found = lappend(*found, jbv);
+					res = jperOk; /* skip evaluation */
+					break;
 				}
+
+				v = hasNext ? &vbuf : palloc(sizeof(*v));
+
+				computeJsonPathItem(cxt, jsp, v);
+
+				res = recursiveExecuteNext(cxt, jsp, &elem, v, found, hasNext);
 			}
 			break;
 		case jpiType:
@@ -2124,12 +2064,7 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 				jbv->val.string.val = pstrdup(JsonbTypeName(jb));
 				jbv->val.string.len = strlen(jbv->val.string.val);
 
-				res = jperOk;
-
-				if (jspGetNext(jsp, &elem))
-					res = recursiveExecute(cxt, &elem, jbv, found);
-				else if (found)
-					*found = lappend(*found, jbv);
+				res = recursiveExecuteNext(cxt, jsp, NULL, jbv, found, false);
 			}
 			break;
 		case jpiSize:
@@ -2154,12 +2089,7 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 					DatumGetNumeric(DirectFunctionCall1(int4_numeric,
 														Int32GetDatum(size)));
 
-				res = jperOk;
-
-				if (jspGetNext(jsp, &elem))
-					res = recursiveExecute(cxt, &elem, jb, found);
-				else if (found)
-					*found = lappend(*found, jb);
+				res = recursiveExecuteNext(cxt, jsp, NULL, jb, found, false);
 			}
 			break;
 		case jpiAbs:
@@ -2195,12 +2125,7 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 					jb->type = jbvNumeric;
 					jb->val.numeric = DatumGetNumeric(datum);
 
-					res = jperOk;
-
-					if (jspGetNext(jsp, &elem))
-						res = recursiveExecute(cxt, &elem, jb, found);
-					else if (found)
-						*found = lappend(*found, jb);
+					res = recursiveExecuteNext(cxt, jsp, NULL, jb, found, false);
 				}
 				else
 					res = jperMakeError(ERRCODE_NON_NUMERIC_JSON_ITEM);
@@ -2255,12 +2180,7 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 				PG_END_TRY();
 
 				if (res == jperOk)
-				{
-					if (jspGetNext(jsp, &elem))
-						res = recursiveExecute(cxt, &elem, jb, found);
-					else if (found)
-						*found = lappend(*found, copyJsonbValue(jb));
-				}
+					res = recursiveExecuteNext(cxt, jsp, NULL, jb, found, true);
 			}
 			break;
 		case jpiDatetime:
@@ -2392,10 +2312,7 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 				jb->val.datetime.typid = typid;
 				jb->val.datetime.typmod = typmod;
 
-				if (hasNext)
-					res = recursiveExecute(cxt, &elem, jb, found);
-				else
-					*found = lappend(*found, jb);
+				res = recursiveExecuteNext(cxt, jsp, &elem, jb, found, hasNext);
 			}
 			break;
 		case jpiKeyValue:
@@ -2464,18 +2381,13 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 						obj.val.binary.data = &jsonb->root;
 						obj.val.binary.len = VARSIZE(jsonb) - VARHDRSZ;
 
-						if (hasNext)
-						{
-							res = recursiveExecute(cxt, &elem, &obj, found);
+						res = recursiveExecuteNext(cxt, jsp, &elem, &obj, found, true);
 
-							if (jperIsError(res))
-								break;
+						if (jperIsError(res))
+							break;
 
-							if (res == jperOk && !found)
-								break;
-						}
-						else
-							*found = lappend(*found, copyJsonbValue(&obj));
+						if (res == jperOk && !found)
+							break;
 					}
 				}
 			}
