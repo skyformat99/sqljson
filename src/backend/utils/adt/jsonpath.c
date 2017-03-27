@@ -26,6 +26,7 @@ typedef struct JsonPathExecContext
 {
 	List	   *vars;
 	bool		lax;
+	JsonbValue *root;				/* for $ evaluation */
 	int			innermostArraySize;	/* for LAST array index evaluation */
 } JsonPathExecContext;
 
@@ -44,7 +45,7 @@ static JsonPathExecResult recursiveExecuteUnwrap(JsonPathExecContext *cxt,
  */
 static int
 flattenJsonPathParseItem(StringInfo buf, JsonPathParseItem *item,
-						 bool forbiddenRoot, bool insideArraySubscript)
+						 bool allowCurrent, bool insideArraySubscript)
 {
 	/* position from begining of jsonpath data */
 	int32	pos = buf->len - JSONPATH_HDRSZ;
@@ -109,11 +110,11 @@ flattenJsonPathParseItem(StringInfo buf, JsonPathParseItem *item,
 				appendBinaryStringInfo(buf, (char*)&right /* fake value */, sizeof(right));
 
 				chld = flattenJsonPathParseItem(buf, item->value.args.left,
-												forbiddenRoot,
+												allowCurrent,
 												insideArraySubscript);
 				*(int32*)(buf->data + left) = chld;
 				chld = flattenJsonPathParseItem(buf, item->value.args.right,
-												forbiddenRoot,
+												allowCurrent,
 												insideArraySubscript);
 				*(int32*)(buf->data + right) = chld;
 			}
@@ -141,7 +142,7 @@ flattenJsonPathParseItem(StringInfo buf, JsonPathParseItem *item,
 
 				chld = flattenJsonPathParseItem(buf, item->value.arg,
 												item->type == jpiFilter ||
-												forbiddenRoot,
+												allowCurrent,
 												insideArraySubscript);
 				*(int32*)(buf->data + arg) = chld;
 			}
@@ -149,16 +150,12 @@ flattenJsonPathParseItem(StringInfo buf, JsonPathParseItem *item,
 		case jpiNull:
 			break;
 		case jpiRoot:
-			if (forbiddenRoot)
-				ereport(ERROR,
-						(errcode(ERRCODE_SYNTAX_ERROR),
-						 errmsg("root is not allowed in expression")));
 			break;
 		case jpiAnyArray:
 		case jpiAnyKey:
 			break;
 		case jpiCurrent:
-			if (!forbiddenRoot)
+			if (!allowCurrent)
 				ereport(ERROR,
 						(errcode(ERRCODE_SYNTAX_ERROR),
 						 errmsg("@ is not allowed in root expressions")));
@@ -226,7 +223,7 @@ flattenJsonPathParseItem(StringInfo buf, JsonPathParseItem *item,
 
 	if (item->next)
 		*(int32*)(buf->data + next) =
-			flattenJsonPathParseItem(buf, item->next, forbiddenRoot,
+			flattenJsonPathParseItem(buf, item->next, allowCurrent,
 									 insideArraySubscript);
 
 	return  pos;
@@ -1844,6 +1841,9 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 			else if (!cxt->lax && found)
 				res = jperMakeError(ERRCODE_JSON_MEMBER_NOT_FOUND);
 			break;
+		case jpiRoot:
+			jb = cxt->root;
+			/* fall through */
 		case jpiCurrent:
 			if (!jspGetNext(jsp, &elem))
 			{
@@ -2103,19 +2103,6 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 		case jpiPlus:
 		case jpiMinus:
 			res = executeUnaryArithmExpr(cxt, jsp, jb, found);
-			break;
-		case jpiRoot:
-			if (jspGetNext(jsp, &elem))
-			{
-				res = recursiveExecute(cxt, &elem, jb, found);
-			}
-			else
-			{
-				res = jperOk;
-				if (found)
-					*found = lappend(*found, copyJsonbValue(jb));
-			}
-
 			break;
 		case jpiFilter:
 			jspGetArg(jsp, &elem);
@@ -2669,6 +2656,7 @@ executeJsonPath(JsonPath *path, List *vars, Jsonb *json, List **foundJson)
 
 	cxt.vars = vars;
 	cxt.lax = (path->header & JSONPATH_LAX) != 0;
+	cxt.root = &jbv;
 	cxt.innermostArraySize = -1;
 
 	return recursiveExecute(&cxt, &jsp, &jbv, foundJson);

@@ -1153,6 +1153,7 @@ select '$.a.**{2,5}.b'::jsonpath;
 select '$.a.**{,5}.b'::jsonpath;
 select '$.a.**{5,}.b'::jsonpath;
 
+select '$.g ? ($.a == 1)'::jsonpath;
 select '$.g ? (@ == 1)'::jsonpath;
 select '$.g ? (a == 1)'::jsonpath;
 select '$.g ? (.a == 1)'::jsonpath;
@@ -1177,6 +1178,7 @@ select '$.g ? (zip == $zip)'::jsonpath;
 select '$.a.[1,2, 3 to 16]'::jsonpath;
 select '$.a[1,2, 3 to 16]'::jsonpath;
 select '$.a[$a + 1, ($b[*]) to -(@[0] * 2)]'::jsonpath;
+select '$.a[$.a.size() - 3]'::jsonpath;
 select 'last'::jsonpath;
 select '"last"'::jsonpath;
 select '$.last'::jsonpath;
@@ -1358,6 +1360,7 @@ select _jsonpath_object('{"g": {"x": 2}}', '$.g ? (exists (@.x ? (@ >= 2)))');
 select _jsonpath_exists('{"a": 1, "b":1}', '$ ? (.a == .b)');
 select _jsonpath_exists('{"c": {"a": 1, "b":1}}', '$ ? (.a == .b)');
 select _jsonpath_exists('{"c": {"a": 1, "b":1}}', '$.c ? (.a == .b)');
+select _jsonpath_exists('{"c": {"a": 1, "b":1}}', '$.c ? ($.c.a == .b)');
 select _jsonpath_exists('{"c": {"a": 1, "b":1}}', '$.* ? (.a == .b)');
 select _jsonpath_exists('{"a": 1, "b":1}', '$.** ? (.a == .b)');
 select _jsonpath_exists('{"c": {"a": 1, "b":1}}', '$.** ? (.a == .b)');
@@ -1376,6 +1379,7 @@ select _jsonpath_exists('[1,2,3]', '$ ? (+@[*] > +2)');
 select _jsonpath_exists('[1,2,3]', '$ ? (+@[*] > +3)');
 select _jsonpath_exists('[1,2,3]', '$ ? (-@[*] < -2)');
 select _jsonpath_exists('[1,2,3]', '$ ? (-@[*] < -3)');
+select _jsonpath_exists('1', '$ ? ($ > 0)');
 
 -- unwrapping of operator arguments in lax mode
 select _jsonpath_object('{"a": [2]}', 'lax $.a * 3');

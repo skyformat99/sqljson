@@ -2772,6 +2772,12 @@ select '$.a.**{5,}.b'::jsonpath;
  $."a".**{5,}."b"
 (1 row)
 
+select '$.g ? ($.a == 1)'::jsonpath;
+      jsonpath      
+--------------------
+ $."g"?($."a" == 1)
+(1 row)
+
 select '$.g ? (@ == 1)'::jsonpath;
     jsonpath    
 ----------------
@@ -2908,6 +2914,12 @@ select '$.a[$a + 1, ($b[*]) to -(@[0] * 2)]'::jsonpath;
                  jsonpath                  
 -------------------------------------------
  $."a".[$"a" + 1,$"b".[*] to -(@.[0] * 2)]
+(1 row)
+
+select '$.a[$.a.size() - 3]'::jsonpath;
+         jsonpath         
+--------------------------
+ $."a".[$."a".size() - 3]
 (1 row)
 
 select 'last'::jsonpath;
@@ -3899,6 +3911,12 @@ select _jsonpath_exists('{"c": {"a": 1, "b":1}}', '$.c ? (.a == .b)');
  t
 (1 row)
 
+select _jsonpath_exists('{"c": {"a": 1, "b":1}}', '$.c ? ($.c.a == .b)');
+ _jsonpath_exists 
+------------------
+ t
+(1 row)
+
 select _jsonpath_exists('{"c": {"a": 1, "b":1}}', '$.* ? (.a == .b)');
  _jsonpath_exists 
 ------------------
@@ -4005,6 +4023,12 @@ select _jsonpath_exists('[1,2,3]', '$ ? (-@[*] < -3)');
  _jsonpath_exists 
 ------------------
  f
+(1 row)
+
+select _jsonpath_exists('1', '$ ? ($ > 0)');
+ _jsonpath_exists 
+------------------
+ t
 (1 row)
 
 -- unwrapping of operator arguments in lax mode
