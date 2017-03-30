@@ -244,10 +244,16 @@ typedef struct JsonPathVariableEvalContext
 	bool		evaluated;
 } JsonPathVariableEvalContext;
 
+typedef struct JsonValueList
+{
+	JsonbValue *singleton;
+	List	   *list;
+} JsonValueList;
+
 JsonPathExecResult	executeJsonPath(JsonPath *path,
 									List	*vars, /* list of JsonPathVariable */
 									Jsonb *json,
-									List **foundJson);
+									JsonValueList *foundJson);
 
 extern bool   JsonbPathExists(Jsonb *, JsonPath *path, List *vars);
 extern Jsonb *JsonbPathValue(Jsonb *jb, JsonPath *jp, bool *empty, List *vars);
