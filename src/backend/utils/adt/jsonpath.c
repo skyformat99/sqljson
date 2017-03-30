@@ -32,11 +32,121 @@ typedef struct JsonPathExecContext
 
 static JsonPathExecResult recursiveExecute(JsonPathExecContext *cxt,
 										   JsonPathItem *jsp, JsonbValue *jb,
-										   List **found);
+										   JsonValueList *found);
 
 static JsonPathExecResult recursiveExecuteUnwrap(JsonPathExecContext *cxt,
-							JsonPathItem *jsp, JsonbValue *jb, List **found);
+							JsonPathItem *jsp, JsonbValue *jb, JsonValueList *found);
 
+static inline JsonbValue *wrapItemsInArray(const JsonValueList *items);
+
+
+static inline void
+JsonValueListAppend(JsonValueList *jvl, JsonbValue *jbv)
+{
+	if (jvl->singleton)
+	{
+		jvl->list = list_make2(jvl->singleton, jbv);
+		jvl->singleton = NULL;
+	}
+	else if (!jvl->list)
+		jvl->singleton = jbv;
+	else
+		jvl->list = lappend(jvl->list, jbv);
+}
+
+static inline void
+JsonValueListConcat(JsonValueList *jvl1, JsonValueList jvl2)
+{
+	if (jvl1->singleton)
+	{
+		if (jvl2.singleton)
+			jvl1->list = list_make2(jvl1->singleton, jvl2.singleton);
+		else
+			jvl1->list = lcons(jvl1->singleton, jvl2.list);
+
+		jvl1->singleton = NULL;
+	}
+	else if (jvl2.singleton)
+	{
+		if (jvl1->list)
+			jvl1->list = lappend(jvl1->list, jvl2.singleton);
+		else
+			jvl1->singleton = jvl2.singleton;
+	}
+	else if (jvl1->list)
+		jvl1->list = list_concat(jvl1->list, jvl2.list);
+	else
+		jvl1->list = jvl2.list;
+}
+
+static inline int
+JsonValueListLength(JsonValueList *jvl)
+{
+	return jvl->singleton ? 1 : list_length(jvl->list);
+}
+
+static inline bool
+JsonValueListIsEmpty(JsonValueList *jvl)
+{
+	return !jvl->singleton && list_length(jvl->list) <= 0;
+}
+
+static inline JsonbValue *
+JsonValueListHead(JsonValueList *jvl)
+{
+	return jvl->singleton ? jvl->singleton : linitial(jvl->list);
+}
+
+static inline void
+JsonValueListClear(JsonValueList *jvl)
+{
+	jvl->singleton = NULL;
+	jvl->list = NIL;
+}
+
+static inline List *
+JsonValueListGetList(JsonValueList *jvl)
+{
+	if (jvl->singleton)
+		return list_make1(jvl->singleton);
+
+	return jvl->list;
+}
+
+typedef struct JsonValueListIterator
+{
+	ListCell   *lcell;
+} JsonValueListIterator;
+
+#define JsonValueListIteratorEnd ((ListCell *) -1)
+
+static inline JsonbValue *
+JsonValueListNext(const JsonValueList *jvl, JsonValueListIterator *it)
+{
+	if (it->lcell == JsonValueListIteratorEnd)
+		return NULL;
+
+	if (it->lcell)
+		it->lcell = lnext(it->lcell);
+	else
+	{
+		if (jvl->singleton)
+		{
+			it->lcell = JsonValueListIteratorEnd;
+			return jvl->singleton;
+		}
+
+		it->lcell = list_head(jvl->list);
+	}
+
+	if (!it->lcell)
+	{
+		it->lcell = JsonValueListIteratorEnd;
+		return NULL;
+	}
+
+	return lfirst(it->lcell);
+}
 
 /*****************************INPUT/OUTPUT************************************/
 
@@ -1257,7 +1367,7 @@ copyJsonbValue(JsonbValue *src)
 static inline JsonPathExecResult
 recursiveExecuteNext(JsonPathExecContext *cxt,
 					 JsonPathItem *cur, JsonPathItem *next,
-					 JsonbValue *v, List **found, bool copy)
+					 JsonbValue *v, JsonValueList *found, bool copy)
 {
 	JsonPathItem elem;
 	bool		hasNext;
@@ -1276,35 +1386,34 @@ recursiveExecuteNext(JsonPathExecContext *cxt,
 		return recursiveExecute(cxt, next, v, found);
 
 	if (found)
-		*found = lappend(*found, copy ? copyJsonbValue(v) : v);
+		JsonValueListAppend(found, copy ? copyJsonbValue(v) : v);
 
 	return jperOk;
 }
 
 static inline JsonPathExecResult
 recursiveExecuteAndUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
-						  JsonbValue *jb, List **found)
+						  JsonbValue *jb, JsonValueList *found)
 {
 	if (cxt->lax)
 	{
-		List *seq = NIL;
+		JsonValueList seq = { 0 };
+		JsonValueListIterator it = { 0 };
 		JsonPathExecResult res = recursiveExecute(cxt, jsp, jb, &seq);
-		ListCell *lc;
+		JsonbValue *item;
 
 		if (jperIsError(res))
 			return res;
 
-		foreach(lc, seq)
+		while ((item = JsonValueListNext(&seq, &it)))
 		{
-			JsonbValue *item = lfirst(lc);
-
 			if (item->type == jbvArray)
 			{
 				JsonbValue *elem = item->val.array.elems;
 				JsonbValue *last = elem + item->val.array.nElems;
 
 				for (; elem < last; elem++)
-					*found = lappend(*found, copyJsonbValue(elem));
+					JsonValueListAppend(found, copyJsonbValue(elem));
 			}
 			else if (item->type == jbvBinary &&
 					 JsonContainerIsArray(item->val.binary.data))
@@ -1316,11 +1425,11 @@ recursiveExecuteAndUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 				while ((tok = JsonbIteratorNext(&it, &elem, true)) != WJB_DONE)
 				{
 					if (tok == WJB_ELEM)
-						*found = lappend(*found, copyJsonbValue(&elem));
+						JsonValueListAppend(found, copyJsonbValue(&elem));
 				}
 			}
 			else
-				*found = lappend(*found, item);
+				JsonValueListAppend(found, item);
 		}
 
 		return jperOk;
@@ -1334,10 +1443,10 @@ executeExpr(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb)
 {
 	JsonPathExecResult res;
 	JsonPathItem elem;
-	List	   *lseq = NIL;
-	List	   *rseq = NIL;
-	ListCell   *llc;
-	ListCell   *rlc;
+	JsonValueList lseq = { 0 };
+	JsonValueList rseq = { 0 };
+	JsonValueListIterator lseqit = { 0 };
+	JsonbValue *lval;
 	bool		error = false;
 	bool		found = false;
 
@@ -1351,14 +1460,13 @@ executeExpr(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb)
 	if (jperIsError(res))
 		return jperError;
 
-	foreach(llc, lseq)
+	while ((lval = JsonValueListNext(&lseq, &lseqit)))
 	{
-		JsonbValue *lval = lfirst(llc);
+		JsonValueListIterator rseqit = { 0 };
+		JsonbValue *rval;
 
-		foreach(rlc, rseq)
+		while ((rval = JsonValueListNext(&rseq, &rseqit)))
 		{
-			JsonbValue *rval = lfirst(rlc);
-
 			switch (jsp->type)
 			{
 				case jpiEqual:
@@ -1405,12 +1513,12 @@ executeExpr(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb)
 
 static JsonPathExecResult
 executeBinaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
-						JsonbValue *jb, List **found)
+						JsonbValue *jb, JsonValueList *found)
 {
 	JsonPathExecResult jper;
 	JsonPathItem elem;
-	List	   *lseq = NIL;
-	List	   *rseq = NIL;
+	JsonValueList lseq = { 0 };
+	JsonValueList rseq = { 0 };
 	JsonbValue *lval;
 	JsonbValue *rval;
 	JsonbValue	lvalbuf;
@@ -1435,10 +1543,12 @@ executeBinaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
 				: recursiveExecuteAndUnwrap(cxt, &elem, jb, &rseq);
 	}
 
-	if (jper != jperOk || list_length(lseq) != 1 || list_length(rseq) != 1)
+	if (jper != jperOk ||
+		JsonValueListLength(&lseq) != 1 ||
+		JsonValueListLength(&rseq) != 1)
 		return jperMakeError(ERRCODE_SINGLETON_JSON_ITEM_REQUIRED);
 
-	lval = linitial(lseq);
+	lval = JsonValueListHead(&lseq);
 
 	if (JsonbType(lval) == jbvScalar)
 		lval = JsonbExtractScalar(lval->val.binary.data, &lvalbuf);
@@ -1446,7 +1556,7 @@ executeBinaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
 	if (lval->type != jbvNumeric)
 		return jperMakeError(ERRCODE_SINGLETON_JSON_ITEM_REQUIRED);
 
-	rval = linitial(rseq);
+	rval = JsonValueListHead(&rseq);
 
 	if (JsonbType(rval) == jbvScalar)
 		rval = JsonbExtractScalar(rval->val.binary.data, &rvalbuf);
@@ -1492,13 +1602,14 @@ executeBinaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
 
 static JsonPathExecResult
 executeUnaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
-					   JsonbValue *jb, List **found)
+					   JsonbValue *jb,  JsonValueList *found)
 {
 	JsonPathExecResult jper;
 	JsonPathExecResult jper2;
 	JsonPathItem elem;
-	List	   *seq = NIL;
-	ListCell   *lc;
+	JsonValueList seq = { 0 };
+	JsonValueListIterator it = { 0 };
+	JsonbValue *val;
 	bool		hasNext;
 
 	jspGetArg(jsp, &elem);
@@ -1511,10 +1622,8 @@ executeUnaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
 
 	hasNext = jspGetNext(jsp, &elem);
 
-	foreach(lc, seq)
+	while ((val = JsonValueListNext(&seq, &it)))
 	{
-		JsonbValue *val = lfirst(lc);
-
 		if (JsonbType(val) == jbvScalar)
 			JsonbExtractScalar(val->val.binary.data, val);
 
@@ -1563,7 +1672,7 @@ executeUnaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
  */
 static JsonPathExecResult
 recursiveAny(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
-			 List **found, uint32 level, uint32 first, uint32 last)
+			 JsonValueList *found, uint32 level, uint32 first, uint32 last)
 {
 	JsonPathExecResult	res = jperNotFound;
 	JsonbIterator		*it;
@@ -1624,17 +1733,17 @@ getArrayIndex(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
 			  int32 *index)
 {
 	JsonbValue *jbv;
-	List	   *found = NIL;
+	JsonValueList found = { 0 };
 	JsonbValue	tmp;
 	JsonPathExecResult res = recursiveExecute(cxt, jsp, jb, &found);
 
 	if (jperIsError(res))
 		return res;
 
-	if (list_length(found) != 1)
+	if (JsonValueListLength(&found) != 1)
 		return jperMakeError(ERRCODE_INVALID_JSON_SUBSCRIPT);
 
-	jbv = linitial(found);
+	jbv = JsonValueListHead(&found);
 
 	if (JsonbType(jbv) == jbvScalar)
 		jbv = JsonbExtractScalar(jbv->val.binary.data, &tmp);
@@ -1656,9 +1765,10 @@ executeStartsWithPredicate(JsonPathExecContext *cxt, JsonPathItem *jsp,
 {
 	JsonPathExecResult res;
 	JsonPathItem elem;
-	List	   *lseq = NIL;
-	List	   *rseq = NIL;
-	ListCell   *lc;
+	JsonValueList lseq = { 0 };
+	JsonValueList rseq = { 0 };
+	JsonValueListIterator lit = { 0 };
+	JsonbValue *whole;
 	JsonbValue *initial;
 	JsonbValue	initialbuf;
 	bool		error = false;
@@ -1669,10 +1779,10 @@ executeStartsWithPredicate(JsonPathExecContext *cxt, JsonPathItem *jsp,
 	if (jperIsError(res))
 		return jperError;
 
-	if (list_length(rseq) != 1)
+	if (JsonValueListLength(&rseq) != 1)
 		return jperError;
 
-	initial = linitial(rseq);
+	initial = JsonValueListHead(&rseq);
 
 	if (JsonbType(initial) == jbvScalar)
 		initial = JsonbExtractScalar(initial->val.binary.data, &initialbuf);
@@ -1685,9 +1795,8 @@ executeStartsWithPredicate(JsonPathExecContext *cxt, JsonPathItem *jsp,
 	if (jperIsError(res))
 		return jperError;
 
-	foreach(lc, lseq)
+	while ((whole = JsonValueListNext(&lseq, &lit)))
 	{
-		JsonbValue *whole = lfirst(lc);
 		JsonbValue	wholebuf;
 
 		if (JsonbType(whole) == jbvScalar)
@@ -1758,7 +1867,7 @@ tryToParseDatetime(const char *template, text *datetime,
  */
 static JsonPathExecResult
 recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
-						 JsonbValue *jb, List **found)
+						 JsonbValue *jb, JsonValueList *found)
 {
 	JsonPathItem		elem;
 	JsonPathExecResult	res = jperNotFound;
@@ -2457,7 +2566,7 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 
 static JsonPathExecResult
 recursiveExecuteUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
-					   JsonbValue *jb, List **found)
+					   JsonbValue *jb, JsonValueList *found)
 {
 	if (cxt->lax && JsonbType(jb) == jbvArray)
 	{
@@ -2516,7 +2625,7 @@ wrapItem(JsonbValue *jbv)
 
 static JsonPathExecResult
 recursiveExecute(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
-				 List **found)
+				 JsonValueList *found)
 {
 	check_stack_depth();
 
@@ -2554,7 +2663,7 @@ recursiveExecute(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
  * Public interface to jsonpath executor
  */
 JsonPathExecResult
-executeJsonPath(JsonPath *path, List *vars, Jsonb *json, List **foundJson)
+executeJsonPath(JsonPath *path, List *vars, Jsonb *json, JsonValueList *foundJson)
 {
 	JsonPathExecContext cxt;
 	JsonPathItem	jsp;
@@ -2754,7 +2863,7 @@ static Datum
 __jsonpath_object(FunctionCallInfo fcinfo, bool safe)
 {
 	FuncCallContext	*funcctx;
-	List			*found = NIL;
+	List			*found;
 	JsonbValue		*v;
 	ListCell		*c;
 
@@ -2765,6 +2874,7 @@ __jsonpath_object(FunctionCallInfo fcinfo, bool safe)
 		JsonPathExecResult	res;
 		MemoryContext		oldcontext;
 		List				*vars = NIL;
+		JsonValueList		found = { 0 };
 
 		funcctx = SRF_FIRSTCALL_INIT();
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
@@ -2778,14 +2888,14 @@ __jsonpath_object(FunctionCallInfo fcinfo, bool safe)
 		if (jperIsError(res))
 		{
 			if (safe)
-				found = NIL;
+				JsonValueListClear(&found);
 			else
 				throwJsonPathError(res);
 		}
 
 		PG_FREE_IF_COPY(jp, 1);
 
-		funcctx->user_fctx = found;
+		funcctx->user_fctx = JsonValueListGetList(&found);
 
 		MemoryContextSwitchTo(oldcontext);
 	}
@@ -2840,19 +2950,42 @@ JsonbPathExists(Jsonb *jb, JsonPath *jp, List *vars)
 	return res == jperOk;
 }
 
+static inline JsonbValue *
+wrapItemsInArray(const JsonValueList *items)
+{
+	JsonbParseState *ps = NULL;
+	JsonValueListIterator it = { 0 };
+	JsonbValue *jbv;
+
+	pushJsonbValue(&ps, WJB_BEGIN_ARRAY, NULL);
+
+	while ((jbv = JsonValueListNext(items, &it)))
+	{
+		if (jbv->type == jbvBinary &&
+			JsonContainerIsScalar(jbv->val.binary.data))
+			JsonbExtractScalar(jbv->val.binary.data, jbv);
+
+		pushJsonbValue(&ps, WJB_ELEM, jbv);
+	}
+
+	return pushJsonbValue(&ps, WJB_END_ARRAY, NULL);
+}
+
 Jsonb *
 JsonbPathQuery(Jsonb *jb, JsonPath *jp, JsonWrapper wrapper,
 			   bool *empty, List *vars)
 {
 	JsonbValue *first;
-	Jsonb	   *res = NULL;
 	bool		wrap;
-	List	   *found = NIL;
+	JsonValueList found = { 0 };
 	JsonPathExecResult jper = executeJsonPath(jp, vars, jb, &found);
+	int			count;
 
 	throwJsonPathError(jper);
 
-	first = found ? linitial(found) : NULL;
+	count = JsonValueListLength(&found);
+
+	first = count ? JsonValueListHead(&found) : NULL;
 
 	if (!first)
 		wrap = false;
@@ -2861,7 +2994,7 @@ JsonbPathQuery(Jsonb *jb, JsonPath *jp, JsonWrapper wrapper,
 	else if (wrapper == JSW_UNCONDITIONAL)
 		wrap = true;
 	else if (wrapper == JSW_CONDITIONAL)
-		wrap = list_length(found) > 1 ||
+		wrap = count > 1 ||
 			   IsAJsonbScalar(first) ||
 			   (first->type == jbvBinary &&
 				JsonContainerIsScalar(first->val.binary.data));
@@ -2872,65 +3005,43 @@ JsonbPathQuery(Jsonb *jb, JsonPath *jp, JsonWrapper wrapper,
 	}
 
 	if (wrap)
-	{
-		JsonbParseState *ps = NULL;
-		JsonbValue *arr;
-		ListCell   *lc;
+		return JsonbValueToJsonb(wrapItemsInArray(&found));
 
-		pushJsonbValue(&ps, WJB_BEGIN_ARRAY, NULL);
+	if (count > 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_MORE_THAN_ONE_JSON_ITEM),
+				 errmsg("more than one SQL/JSON item")));
 
-		foreach(lc, found)
-		{
-			JsonbValue *jbv = (JsonbValue *) lfirst(lc);
+	if (first)
+		return JsonbValueToJsonb(first);
 
-			if (jbv->type == jbvBinary &&
-				JsonContainerIsScalar(jbv->val.binary.data))
-				JsonbExtractScalar(jbv->val.binary.data, jbv);
-
-			pushJsonbValue(&ps, WJB_ELEM, jbv);
-		}
-
-		arr = pushJsonbValue(&ps, WJB_END_ARRAY, NULL);
-		res = JsonbValueToJsonb(arr);
-	}
-	else
-	{
-		if (list_length(found) > 1)
-			ereport(ERROR,
-					(errcode(ERRCODE_MORE_THAN_ONE_JSON_ITEM),
-					 errmsg("more than one SQL/JSON item")));
-		else if (first)
-			res = JsonbValueToJsonb(first);
-		else
-		{
-			*empty = true;
-			res = NULL;
-		}
-	}
-
-	return res;
+	*empty = true;
+	return NULL;
 }
 
 Jsonb *
 JsonbPathValue(Jsonb *jb, JsonPath *jp, bool *empty, List *vars)
 {
 	JsonbValue *res;
-	List	   *found = NIL;
+	JsonValueList found = { 0 };
 	JsonPathExecResult jper = executeJsonPath(jp, vars, jb, &found);
+	int			count;
 
 	throwJsonPathError(jper);
 
-	*empty = !found;
+	count = JsonValueListLength(&found);
+
+	*empty = !count;
 
 	if (*empty)
 		return NULL;
 
-	if (list_length(found) > 1)
+	if (count > 1)
 		ereport(ERROR,
 				(errcode(ERRCODE_MORE_THAN_ONE_JSON_ITEM),
 				 errmsg("more than one SQL/JSON item")));
 
-	res = linitial(found);
+	res = JsonValueListHead(&found);
 
 	if (res->type == jbvBinary &&
 		JsonContainerIsScalar(res->val.binary.data))
