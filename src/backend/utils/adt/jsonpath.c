@@ -922,6 +922,17 @@ JsonbInitBinary(JsonbValue *jbv, Jsonb *jb)
 	return jbv;
 }
 
+static inline JsonbValue *
+JsonbWrapInBinary(JsonbValue *jbv, JsonbValue *out)
+{
+	Jsonb	   *jb = JsonbValueToJsonb(jbv);
+
+	if (!out)
+		out = palloc(sizeof(*out));
+
+	return JsonbInitBinary(out, jb);
+}
+
 bool
 jspGetArraySubscript(JsonPathItem *v, JsonPathItem *from, JsonPathItem *to,
 					 int i)
@@ -2605,7 +2616,6 @@ static inline JsonbValue *
 wrapItem(JsonbValue *jbv)
 {
 	JsonbParseState *ps = NULL;
-	Jsonb	   *jb;
 	JsonbValue	jbvbuf;
 	int			type = JsonbType(jbv);
 
@@ -2619,14 +2629,7 @@ wrapItem(JsonbValue *jbv)
 	pushJsonbValue(&ps, WJB_ELEM, jbv);
 	jbv = pushJsonbValue(&ps, WJB_END_ARRAY, NULL);
 
-	jb = JsonbValueToJsonb(jbv);
-
-	jbv = palloc(sizeof(*jbv));
-	jbv->type = jbvBinary;
-	jbv->val.binary.data = &jb->root;
-	jbv->val.binary.len = VARSIZE(jb) - VARHDRSZ;
-
-	return jbv;
+	return JsonbWrapInBinary(jbv, NULL);
 }
 
 static inline JsonPathExecResult
