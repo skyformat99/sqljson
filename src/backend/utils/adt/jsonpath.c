@@ -817,6 +817,16 @@ jspGetNext(JsonPathItem *v, JsonPathItem *a)
 			v->type == jpiMod ||
 			v->type == jpiPlus ||
 			v->type == jpiMinus ||
+			v->type == jpiEqual ||
+			v->type == jpiNotEqual ||
+			v->type == jpiGreater ||
+			v->type == jpiGreaterOrEqual ||
+			v->type == jpiLess ||
+			v->type == jpiLessOrEqual ||
+			v->type == jpiAnd ||
+			v->type == jpiOr ||
+			v->type == jpiNot ||
+			v->type == jpiIsUnknown ||
 			v->type == jpiType ||
 			v->type == jpiSize ||
 			v->type == jpiAbs ||
@@ -1823,6 +1833,28 @@ tryToParseDatetime(const char *template, text *datetime,
 	return ok;
 }
 
+static inline JsonPathExecResult
+appendBoolResult(JsonPathExecContext *cxt, JsonPathItem *jsp,
+				 JsonValueList *found, JsonPathExecResult res)
+{
+	JsonPathItem next;
+	JsonbValue	jbv;
+	bool		hasNext = jspGetNext(jsp, &next);
+
+	if (!found && !hasNext)
+		return res;
+
+	if (jperIsError(res))
+		jbv.type = jbvNull;
+	else
+	{
+		jbv.type = jbvBool;
+		jbv.val.boolean = res == jperOk;
+	}
+
+	return recursiveExecuteNext(cxt, jsp, &next, &jbv, found, true);
+}
+
 /*
  * Main executor function: walks on jsonpath structure and tries to find
  * correspoding parts of jsonb. Note, jsonb and jsonpath values should be
@@ -1861,6 +1893,7 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 
 				res = (res2 == jperOk) ? res : res2;
 			}
+			res = appendBoolResult(cxt, jsp, found, res);
 			break;
 		case jpiOr:
 			jspGetLeftArg(jsp, &elem);
@@ -1874,6 +1907,7 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 
 				res = (res2 == jperNotFound) ? res : res2;
 			}
+			res = appendBoolResult(cxt, jsp, found, res);
 			break;
 		case jpiNot:
 			jspGetArg(jsp, &elem);
@@ -1888,11 +1922,13 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 				default:
 					break;
 			}
+			res = appendBoolResult(cxt, jsp, found, res);
 			break;
 		case jpiIsUnknown:
 			jspGetArg(jsp, &elem);
 			res = recursiveExecute(cxt, &elem, jb, NULL);
 			res = jperIsError(res) ? jperOk : jperNotFound;
+			res = appendBoolResult(cxt, jsp, found, res);
 			break;
 		case jpiKey:
 			if (JsonbType(jb) == jbvObject)
@@ -2150,6 +2186,7 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 		case jpiLessOrEqual:
 		case jpiGreaterOrEqual:
 			res = executeExpr(cxt, jsp, jb);
+			res = appendBoolResult(cxt, jsp, found, res);
 			break;
 		case jpiAdd:
 		case jpiSub:
@@ -2198,6 +2235,7 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 		case jpiExists:
 			jspGetArg(jsp, &elem);
 			res = recursiveExecute(cxt, &elem, jb, NULL);
+			res = appendBoolResult(cxt, jsp, found, res);
 			break;
 		case jpiNull:
 		case jpiBool:
@@ -2566,6 +2604,7 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 			break;
 		case jpiStartsWith:
 			res = executeStartsWithPredicate(cxt, jsp, jb);
+			res = appendBoolResult(cxt, jsp, found, res);
 			break;
 		default:
 			elog(ERROR,"Wrong state: %d", jsp->type);
