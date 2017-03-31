@@ -4105,6 +4105,58 @@ SELECT JSON_EXISTS(jsonb '1', '$.a > 2' ERROR ON ERROR);
  t
 (1 row)
 
+select _jsonpath_predicate('2', '$ > 1');
+ _jsonpath_predicate 
+---------------------
+ t
+(1 row)
+
+select _jsonpath_predicate('2', '$ <= 1');
+ _jsonpath_predicate 
+---------------------
+ f
+(1 row)
+
+select _jsonpath_predicate('2', '$ == "2"');
+ _jsonpath_predicate 
+---------------------
+ 
+(1 row)
+
+select _jsonpath_predicate('2', '1');
+ _jsonpath_predicate 
+---------------------
+ 
+(1 row)
+
+select _jsonpath_predicate('{}', '$');
+ _jsonpath_predicate 
+---------------------
+ 
+(1 row)
+
+select _jsonpath_predicate('[]', '$');
+ _jsonpath_predicate 
+---------------------
+ 
+(1 row)
+
+select _jsonpath_predicate('[1,2,3]', '$[*]');
+ERROR:  Singleton SQL/JSON item required
+select _jsonpath_predicate('[]', '$[*]');
+ERROR:  Singleton SQL/JSON item required
+select _jsonpath_predicate('[[1, true], [2, false]]', 'strict $[*] ? (@[0] > $x) [1]', '{"x": 1}');
+ _jsonpath_predicate 
+---------------------
+ f
+(1 row)
+
+select _jsonpath_predicate('[[1, true], [2, false]]', 'strict $[*] ? (@[0] < $x) [1]', '{"x": 2}');
+ _jsonpath_predicate 
+---------------------
+ t
+(1 row)
+
 select _jsonpath_object('[null,1,true,"a",[],{}]', '$.type()');
  _jsonpath_object 
 ------------------
