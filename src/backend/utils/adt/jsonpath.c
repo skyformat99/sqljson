@@ -912,6 +912,16 @@ jspGetString(JsonPathItem *v, int32 *len)
 	return v->content.value.data;
 }
 
+static inline JsonbValue *
+JsonbInitBinary(JsonbValue *jbv, Jsonb *jb)
+{
+	jbv->type = jbvBinary;
+	jbv->val.binary.data = &jb->root;
+	jbv->val.binary.len = VARSIZE_ANY_EXHDR(jb);
+
+	return jbv;
+}
+
 bool
 jspGetArraySubscript(JsonPathItem *v, JsonPathItem *from, JsonPathItem *to,
 					 int i)
@@ -1030,11 +1040,7 @@ computeJsonPathVariable(JsonPathItem *variable, List *vars, JsonbValue *value)
 				if (JB_ROOT_IS_SCALAR(jb))
 					JsonbExtractScalar(&jb->root, value);
 				else
-				{
-					value->type = jbvBinary;
-					value->val.binary.data = &jb->root;
-					value->val.binary.len = VARSIZE_ANY_EXHDR(jb);
-				}
+					JsonbInitBinary(value, jb);
 			}
 			break;
 		default:
@@ -2617,15 +2623,11 @@ executeJsonPath(JsonPath *path, List *vars, Jsonb *json, JsonValueList *foundJso
 	JsonPathItem	jsp;
 	JsonbValue		jbv;
 
-	jbv.type = jbvBinary;
-	jbv.val.binary.data = &json->root;
-	jbv.val.binary.len = VARSIZE_ANY_EXHDR(json);
-
 	jspInit(&jsp, path);
 
 	cxt.vars = vars;
 	cxt.lax = (path->header & JSONPATH_LAX) != 0;
-	cxt.root = &jbv;
+	cxt.root = JsonbInitBinary(&jbv, json);
 	cxt.innermostArray = NULL;
 
 	return recursiveExecute(&cxt, &jsp, &jbv, foundJson);
