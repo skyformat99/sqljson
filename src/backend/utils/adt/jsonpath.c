@@ -2920,6 +2920,51 @@ _jsonpath_exists3(PG_FUNCTION_ARGS)
 	return __jsonpath_exists(fcinfo);
 }
 
+static inline Datum
+_jsonpath_predicate(FunctionCallInfo fcinfo, List *vars)
+{
+	Jsonb	   *jb = PG_GETARG_JSONB(0);
+	JsonPath   *jp = PG_GETARG_JSONPATH(1);
+	JsonbValue *jbv;
+	JsonValueList found = { 0 };
+	JsonPathExecResult res;
+
+	res = executeJsonPath(jp, vars, jb, &found);
+
+	throwJsonPathError(res);
+
+	if (JsonValueListLength(&found) != 1)
+		throwJsonPathError(jperMakeError(ERRCODE_SINGLETON_JSON_ITEM_REQUIRED));
+
+	jbv = JsonValueListHead(&found);
+
+	if (JsonbType(jbv) == jbvScalar)
+		JsonbExtractScalar(jbv->val.binary.data, jbv);
+
+	PG_FREE_IF_COPY(jb, 0);
+	PG_FREE_IF_COPY(jp, 1);
+
+	if (jbv->type == jbvNull)
+		PG_RETURN_NULL();
+
+	if (jbv->type != jbvBool)
+		PG_RETURN_NULL(); /* XXX */
+
+	PG_RETURN_BOOL(jbv->val.boolean);
+}
+
+Datum
+_jsonpath_predicate2(PG_FUNCTION_ARGS)
+{
+	return _jsonpath_predicate(fcinfo, NIL);
+}
+
+Datum
+_jsonpath_predicate3(PG_FUNCTION_ARGS)
+{
+	return _jsonpath_predicate(fcinfo, makePassingVars(PG_GETARG_JSONB(2)));
+}
+
 static Datum
 __jsonpath_object(FunctionCallInfo fcinfo, bool safe)
 {
