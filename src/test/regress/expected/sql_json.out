@@ -3008,6 +3008,22 @@ select '$ ? (@ starts with $var)'::jsonpath;
  $?(@ starts with $"var")
 (1 row)
 
+select '$ < 1'::jsonpath;
+ jsonpath 
+----------
+ ($ < 1)
+(1 row)
+
+select '($ < 1) || $.a.b <= $x'::jsonpath;
+           jsonpath           
+------------------------------
+ ($ < 1 || $."a"."b" <= $"x")
+(1 row)
+
+select '@ + 1'::jsonpath;
+ERROR:  @ is not allowed in root expressions
+LINE 1: select '@ + 1'::jsonpath;
+               ^
 select '($).a.b'::jsonpath;
  jsonpath  
 -----------
@@ -3036,6 +3052,12 @@ select '1 + ($.a.b + 2).c.d'::jsonpath;
            jsonpath            
 -------------------------------
  (1 + ($."a"."b" + 2)."c"."d")
+(1 row)
+
+select '1 + ($.a.b > 2).c.d'::jsonpath;
+           jsonpath            
+-------------------------------
+ (1 + ($."a"."b" > 2)."c"."d")
 (1 row)
 
 select '$ ? (a < 1)'::jsonpath;
@@ -4052,6 +4074,37 @@ ERROR:  Singleton SQL/JSON item required
 -- should fail (by standard unwrapped only arguments of multiplicative expressions)
 select _jsonpath_object('{"a": [2]}', 'lax $.a + 3');
 ERROR:  Singleton SQL/JSON item required
+-- extension: boolean expressions
+select _jsonpath_object('2', '$ > 1');
+ _jsonpath_object 
+------------------
+ true
+(1 row)
+
+select _jsonpath_object('2', '$ <= 1');
+ _jsonpath_object 
+------------------
+ false
+(1 row)
+
+select _jsonpath_object('2', '$ == "2"');
+ _jsonpath_object 
+------------------
+ null
+(1 row)
+
+SELECT JSON_EXISTS(jsonb '1', '$ > 2');
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT JSON_EXISTS(jsonb '1', '$.a > 2' ERROR ON ERROR);
+ ?column? 
+----------
+ t
+(1 row)
+
 select _jsonpath_object('[null,1,true,"a",[],{}]', '$.type()');
  _jsonpath_object 
 ------------------
@@ -4115,6 +4168,30 @@ select _jsonpath_object('{"a": 2.5}', '-($.a * $.a).floor() + 10');
  _jsonpath_object 
 ------------------
  4
+(1 row)
+
+select _jsonpath_object('[1, 2, 3]', '($[*] > 2) ? (@ == true)');
+ _jsonpath_object 
+------------------
+ true
+(1 row)
+
+select _jsonpath_object('[1, 2, 3]', '($[*] > 3).type()');
+ _jsonpath_object 
+------------------
+ "boolean"
+(1 row)
+
+select _jsonpath_object('[1, 2, 3]', '($[*].a > 3).type()');
+ _jsonpath_object 
+------------------
+ "boolean"
+(1 row)
+
+select _jsonpath_object('[1, 2, 3]', 'strict ($[*].a > 3).type()');
+ _jsonpath_object 
+------------------
+ "null"
 (1 row)
 
 select _jsonpath_object('[1,null,true,"11",[],[1],[1,2,3],{},{"a":1,"b":2}]', 'strict $[*].size()');

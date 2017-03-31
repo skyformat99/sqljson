@@ -1197,11 +1197,16 @@ select '$.datetime("datetime template")'::jsonpath;
 select '$ ? (@ starts with "abc")'::jsonpath;
 select '$ ? (@ starts with $var)'::jsonpath;
 
+select '$ < 1'::jsonpath;
+select '($ < 1) || $.a.b <= $x'::jsonpath;
+select '@ + 1'::jsonpath;
+
 select '($).a.b'::jsonpath;
 select '($.a.b).c.d'::jsonpath;
 select '($.a.b + -$.x.y).c.d'::jsonpath;
 select '(-+$.a.b).c.d'::jsonpath;
 select '1 + ($.a.b + 2).c.d'::jsonpath;
+select '1 + ($.a.b > 2).c.d'::jsonpath;
 
 select '$ ? (a < 1)'::jsonpath;
 select '$ ? (a < -1)'::jsonpath;
@@ -1389,6 +1394,14 @@ select _jsonpath_object('{"a": [1, 2]}', 'lax $.a * 3');
 -- should fail (by standard unwrapped only arguments of multiplicative expressions)
 select _jsonpath_object('{"a": [2]}', 'lax $.a + 3');
 
+-- extension: boolean expressions
+select _jsonpath_object('2', '$ > 1');
+select _jsonpath_object('2', '$ <= 1');
+select _jsonpath_object('2', '$ == "2"');
+
+SELECT JSON_EXISTS(jsonb '1', '$ > 2');
+SELECT JSON_EXISTS(jsonb '1', '$.a > 2' ERROR ON ERROR);
+
 select _jsonpath_object('[null,1,true,"a",[],{}]', '$.type()');
 select _jsonpath_object('[null,1,true,"a",[],{}]', 'lax $.type()');
 select _jsonpath_object('[null,1,true,"a",[],{}]', '$[*].type()');
@@ -1400,6 +1413,10 @@ select _jsonpath_object('null', 'aaa.type()');
 
 select _jsonpath_object('{"a": 2}', '($.a - 5).abs() + 10');
 select _jsonpath_object('{"a": 2.5}', '-($.a * $.a).floor() + 10');
+select _jsonpath_object('[1, 2, 3]', '($[*] > 2) ? (@ == true)');
+select _jsonpath_object('[1, 2, 3]', '($[*] > 3).type()');
+select _jsonpath_object('[1, 2, 3]', '($[*].a > 3).type()');
+select _jsonpath_object('[1, 2, 3]', 'strict ($[*].a > 3).type()');
 
 select _jsonpath_object('[1,null,true,"11",[],[1],[1,2,3],{},{"a":1,"b":2}]', 'strict $[*].size()');
 select _jsonpath_object('[1,null,true,"11",[],[1],[1,2,3],{},{"a":1,"b":2}]', 'lax $[*].size()');
