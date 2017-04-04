@@ -4386,6 +4386,52 @@ select _jsonpath_predicate('[[1, true], [2, false]]', '$[*] ? (@[0] < $x) [1]', 
  t
 (1 row)
 
+-- extension: including subpaths into result
+select _jsonpath_object('{"a": [{"b": 1, "c": 10}, {"b": 2, "c": 20}]}', '$.(a[*].b)');
+      _jsonpath_object       
+-----------------------------
+ {"a": [{"b": 1}, {"b": 2}]}
+(1 row)
+
+select _jsonpath_object('{"a": [{"b": 1, "c": 10}, {"b": 2, "c": 20}]}', '$.(a[*]).b');
+ _jsonpath_object 
+------------------
+ {"a": [1, 2]}
+(1 row)
+
+select _jsonpath_object('{"a": [{"b": 1, "c": 10}, {"b": 2, "c": 20}]}', '$.a.([*].b)');
+   _jsonpath_object   
+----------------------
+ [{"b": 1}, {"b": 2}]
+(1 row)
+
+select _jsonpath_object('{"a": [{"b": 1, "c": 10}, {"b": 2, "c": 20}]}', '$.(a)[*].b');
+ _jsonpath_object 
+------------------
+ {"a": 1}
+ {"a": 2}
+(2 rows)
+
+select _jsonpath_object('{"a": [{"b": 1, "c": 10}, {"b": 2, "c": 20}]}', '$.a[*].(b)');
+ _jsonpath_object 
+------------------
+ {"b": 1}
+ {"b": 2}
+(2 rows)
+
+select _jsonpath_object('{"a": [{"b": 1, "c": 10}, {"b": 2, "c": 20}]}', '$.(a)[*].(b)');
+ _jsonpath_object 
+------------------
+ {"a": {"b": 1}}
+ {"a": {"b": 2}}
+(2 rows)
+
+select _jsonpath_object('{"a": [{"b": 1, "c": 10}, {"b": 2, "c": 20}]}', '$.(a.[0 to 1].b)');
+      _jsonpath_object       
+-----------------------------
+ {"a": [{"b": 1}, {"b": 2}]}
+(1 row)
+
 select _jsonpath_object('[null,1,true,"a",[],{}]', '$.type()');
  _jsonpath_object 
 ------------------

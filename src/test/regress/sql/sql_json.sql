@@ -1474,6 +1474,16 @@ select _jsonpath_predicate('[]', '$[*]');
 select _jsonpath_predicate('[[1, true], [2, false]]', '$[*] ? (@[0] > $x) [1]', '{"x": 1}');
 select _jsonpath_predicate('[[1, true], [2, false]]', '$[*] ? (@[0] < $x) [1]', '{"x": 2}');
 
+-- extension: including subpaths into result
+select _jsonpath_object('{"a": [{"b": 1, "c": 10}, {"b": 2, "c": 20}]}', '$.(a[*].b)');
+select _jsonpath_object('{"a": [{"b": 1, "c": 10}, {"b": 2, "c": 20}]}', '$.(a[*]).b');
+select _jsonpath_object('{"a": [{"b": 1, "c": 10}, {"b": 2, "c": 20}]}', '$.a.([*].b)');
+select _jsonpath_object('{"a": [{"b": 1, "c": 10}, {"b": 2, "c": 20}]}', '$.(a)[*].b');
+select _jsonpath_object('{"a": [{"b": 1, "c": 10}, {"b": 2, "c": 20}]}', '$.a[*].(b)');
+select _jsonpath_object('{"a": [{"b": 1, "c": 10}, {"b": 2, "c": 20}]}', '$.(a)[*].(b)');
+select _jsonpath_object('{"a": [{"b": 1, "c": 10}, {"b": 2, "c": 20}]}', '$.(a.[0 to 1].b)');
+
+
 select _jsonpath_object('[null,1,true,"a",[],{}]', '$.type()');
 select _jsonpath_object('[null,1,true,"a",[],{}]', 'lax $.type()');
 select _jsonpath_object('[null,1,true,"a",[],{}]', '$[*].type()');

@@ -125,6 +125,7 @@ typedef enum JsonPathItemType {
 
 typedef struct JsonPathItem {
 	JsonPathItemType	type;
+	uint8				flags;
 
 	/* position form base to next node */
 	int32			nextPos;
@@ -185,6 +186,7 @@ typedef struct JsonPathItem {
 } JsonPathItem;
 
 #define jspHasNext(jsp) ((jsp)->nextPos > 0)
+#define jspOutPath(jsp) (((jsp)->flags & 1) != 0)
 
 extern void jspInit(JsonPathItem *v, JsonPath *js);
 extern void jspInitByBuffer(JsonPathItem *v, char *base, int32 pos);
@@ -209,6 +211,7 @@ typedef struct JsonPathParseItem JsonPathParseItem;
 
 struct JsonPathParseItem {
 	JsonPathItemType	type;
+	uint8				flags;
 	JsonPathParseItem	*next; /* next in path */
 
 	union {
