@@ -4882,6 +4882,27 @@ select _jsonpath_object(
  "Fri Mar 10 02:35:00 2017 PST"
 (2 rows)
 
+-- extension: map item method
+select _jsonpath_object('1', 'strict $.map(@ + 10)');
+ERROR:  SQL/JSON array not found
+select _jsonpath_object('1', 'lax $.map(@ + 10)');
+ _jsonpath_object 
+------------------
+ 11
+(1 row)
+
+select _jsonpath_object('[1, 2, 3]', '$.map(@ + 10)');
+ _jsonpath_object 
+------------------
+ [11, 12, 13]
+(1 row)
+
+select _jsonpath_object('[[1, 2], [3, 4, 5], [], [6, 7]]', '$.map(@.map(@ + 10))');
+            _jsonpath_object            
+----------------------------------------
+ [[11, 12], [13, 14, 15], [], [16, 17]]
+(1 row)
+
 --test ternary logic
 select
 	x, y,
