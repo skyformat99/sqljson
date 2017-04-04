@@ -1582,6 +1582,12 @@ select _jsonpath_object(
 	'$[*].datetime("dd.mm.yyyy HH24:MI TZH") ? (@ < "10.03.2017 12:35 +1".datetime("dd.mm.yyyy HH24:MI TZH"))'
 );
 
+-- extension: map item method
+select _jsonpath_object('1', 'strict $.map(@ + 10)');
+select _jsonpath_object('1', 'lax $.map(@ + 10)');
+select _jsonpath_object('[1, 2, 3]', '$.map(@ + 10)');
+select _jsonpath_object('[[1, 2], [3, 4, 5], [], [6, 7]]', '$.map(@.map(@ + 10))');
+
 --test ternary logic
 select
 	x, y,
