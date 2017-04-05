@@ -3042,6 +3042,42 @@ select '1 + ($.a.b > 2).c.d'::jsonpath;
  (1 + ($."a"."b" > 2)."c"."d")
 (1 row)
 
+select '1, 2 + 3, $.a[*] + 5'::jsonpath;
+        jsonpath         
+-------------------------
+ 1, 2 + 3, $."a".[*] + 5
+(1 row)
+
+select '(1, 2, $.a)'::jsonpath;
+  jsonpath   
+-------------
+ 1, 2, $."a"
+(1 row)
+
+select '(1, 2, $.a).a[*]'::jsonpath;
+       jsonpath        
+-----------------------
+ (1, 2, $."a")."a".[*]
+(1 row)
+
+select '(1, 2, $.a) == 5'::jsonpath;
+       jsonpath       
+----------------------
+ ((1, 2, $."a") == 5)
+(1 row)
+
+select '$[(1, 2, $.a) to (3, 4)]'::jsonpath;
+          jsonpath           
+-----------------------------
+ $.[(1, 2, $."a") to (3, 4)]
+(1 row)
+
+select '$[(1, (2, $.a)), 3, (4, 5)]'::jsonpath;
+           jsonpath           
+------------------------------
+ $.[(1, (2, $."a")),3,(4, 5)]
+(1 row)
+
 select '$ ? (a < 1)'::jsonpath;
   jsonpath   
 -------------
@@ -4819,6 +4855,60 @@ select _jsonpath_object('[[1, 2], [3, 4, 5], [], [6, 7]]', '$.map(@.map(@ + 10))
  [[11, 12], [13, 14, 15], [], [16, 17]]
 (1 row)
 
+-- extension: path sequences
+select _jsonpath_object('[1,2,3,4,5]', '10, 20, $[*], 30');
+ _jsonpath_object 
+------------------
+ 10
+ 20
+ 1
+ 2
+ 3
+ 4
+ 5
+ 30
+(8 rows)
+
+select _jsonpath_object('[1,2,3,4,5]', 'lax    10, 20, $[*].a, 30');
+ _jsonpath_object 
+------------------
+ 10
+ 20
+ 30
+(3 rows)
+
+select _jsonpath_object('[1,2,3,4,5]', 'strict 10, 20, $[*].a, 30');
+ERROR:  SQL/JSON member not found
+select _jsonpath_object('[1,2,3,4,5]', '-(10, 20, $[1 to 3], 30)');
+ _jsonpath_object 
+------------------
+ -10
+ -20
+ -2
+ -3
+ -4
+ -30
+(6 rows)
+
+select _jsonpath_object('[1,2,3,4,5]', 'lax (10, 20, $[1 to 3], 30).map(@ + 100)');
+ _jsonpath_object 
+------------------
+ 110
+ 120
+ 102
+ 103
+ 104
+ 130
+(6 rows)
+
+select _jsonpath_object('[1,2,3,4,5]', '$[(0, $[*], 5) ? (@ == 3)]');
+ _jsonpath_object 
+------------------
+ 4
+(1 row)
+
+select _jsonpath_object('[1,2,3,4,5]', '$[(0, $[*], 3) ? (@ == 3)]');
+ERROR:  Invalid SQL/JSON subscript
 --test ternary logic
 select
 	x, y,
