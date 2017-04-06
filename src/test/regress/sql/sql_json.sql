@@ -1218,6 +1218,10 @@ select '$[(1, (2, $.a)), 3, (4, 5)]'::jsonpath;
 select '[]'::jsonpath;
 select '[[1, 2], ([(3, 4, 5), 6], []), $.a[*]]'::jsonpath;
 
+select '{}'::jsonpath;
+select '{a: 1 + 2}'::jsonpath;
+select '{a: 1 + 2, b : (1,2), c: [$[*],4,5], d: { "e e e": "f f f" }}'::jsonpath;
+
 select '$ ? (a < 1)'::jsonpath;
 select '$ ? (a < -1)'::jsonpath;
 select '$ ? (a < +1)'::jsonpath;
@@ -1635,6 +1639,13 @@ select _jsonpath_object('[1, 2, 3]', '[(1, (2, $.map(@ + 100)[*])), (4, 5)]');
 select _jsonpath_object('[1, 2, 3]', '[[1, 2], [$.map(@ + 100)[*], 4], 5, [(1,2)?(@ > 5)]]');
 select _jsonpath_object('[1, 2, 3]', 'strict [1, 2, $.map(@.a)[*], 4, 5]');
 select _jsonpath_object('[[1, 2], [3, 4, 5], [], [6, 7]]', '[$[*].map(@ + 10)[*] ? (@ > 13)]');
+
+-- extension: object constructors
+select _jsonpath_object('[1, 2, 3]', '{}');
+select _jsonpath_object('[1, 2, 3]', '{a: 2 + 3, "b": [$[*], 4, 5]}');
+select _jsonpath_object('[1, 2, 3]', '{a: 2 + 3, "b": [$[*], 4, 5]}.*');
+select _jsonpath_object('[1, 2, 3]', '{a: 2 + 3, "b": ($[*], 4, 5)}');
+select _jsonpath_object('[1, 2, 3]', '{a: 2 + 3, "b": [$.map({x: @, y: @ < 3})[*], {z: "foo"}]}');
 
 --test ternary logic
 select
