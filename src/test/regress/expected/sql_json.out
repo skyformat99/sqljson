@@ -3078,6 +3078,18 @@ select '$[(1, (2, $.a)), 3, (4, 5)]'::jsonpath;
  $.[(1, (2, $."a")),3,(4, 5)]
 (1 row)
 
+select '[]'::jsonpath;
+ jsonpath 
+----------
+ []
+(1 row)
+
+select '[[1, 2], ([(3, 4, 5), 6], []), $.a[*]]'::jsonpath;
+                 jsonpath                  
+-------------------------------------------
+ [[1, 2], ([(3, 4, 5), 6], []), $."a".[*]]
+(1 row)
+
 select '$ ? (a < 1)'::jsonpath;
   jsonpath   
 -------------
@@ -4909,6 +4921,51 @@ select _jsonpath_object('[1,2,3,4,5]', '$[(0, $[*], 5) ? (@ == 3)]');
 
 select _jsonpath_object('[1,2,3,4,5]', '$[(0, $[*], 3) ? (@ == 3)]');
 ERROR:  Invalid SQL/JSON subscript
+-- extension: array constructors
+select _jsonpath_object('[1, 2, 3]', '[]');
+ _jsonpath_object 
+------------------
+ []
+(1 row)
+
+select _jsonpath_object('[1, 2, 3]', '[1, 2, $.map(@ + 100)[*], 4, 5]');
+      _jsonpath_object       
+-----------------------------
+ [1, 2, 101, 102, 103, 4, 5]
+(1 row)
+
+select _jsonpath_object('[1, 2, 3]', '[1, 2, $.map(@ + 100)[*], 4, 5][*]');
+ _jsonpath_object 
+------------------
+ 1
+ 2
+ 101
+ 102
+ 103
+ 4
+ 5
+(7 rows)
+
+select _jsonpath_object('[1, 2, 3]', '[(1, (2, $.map(@ + 100)[*])), (4, 5)]');
+      _jsonpath_object       
+-----------------------------
+ [1, 2, 101, 102, 103, 4, 5]
+(1 row)
+
+select _jsonpath_object('[1, 2, 3]', '[[1, 2], [$.map(@ + 100)[*], 4], 5, [(1,2)?(@ > 5)]]');
+          _jsonpath_object           
+-------------------------------------
+ [[1, 2], [101, 102, 103, 4], 5, []]
+(1 row)
+
+select _jsonpath_object('[1, 2, 3]', 'strict [1, 2, $.map(@.a)[*], 4, 5]');
+ERROR:  SQL/JSON member not found
+select _jsonpath_object('[[1, 2], [3, 4, 5], [], [6, 7]]', '[$[*].map(@ + 10)[*] ? (@ > 13)]');
+ _jsonpath_object 
+------------------
+ [14, 15, 16, 17]
+(1 row)
+
 --test ternary logic
 select
 	x, y,
