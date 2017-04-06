@@ -83,6 +83,7 @@ typedef enum JsonPathItemType {
 		jpiStartsWith,
 		jpiMap,
 		jpiSequence,
+		jpiArray,
 } JsonPathItemType;
 
 
