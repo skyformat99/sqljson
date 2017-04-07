@@ -2295,6 +2295,25 @@ _copyJsonObjectCtor(const JsonObjectCtor *from)
 }
 
 /*
+ * _copyJsonObjectAgg
+ */
+static JsonObjectAgg *
+_copyJsonObjectAgg(const JsonObjectAgg *from)
+{
+	JsonObjectAgg *newnode = makeNode(JsonObjectAgg);
+
+	COPY_NODE_FIELD(ctor.output);
+	COPY_NODE_FIELD(ctor.agg_filter);
+	COPY_NODE_FIELD(ctor.agg_order);
+	COPY_SCALAR_FIELD(ctor.location);
+	COPY_NODE_FIELD(arg);
+	COPY_SCALAR_FIELD(absent_on_null);
+	COPY_SCALAR_FIELD(unique);
+
+	return newnode;
+}
+
+/*
  * _copyJsonArrayCtor
  */
 static JsonArrayCtor *
@@ -2309,6 +2328,103 @@ _copyJsonArrayCtor(const JsonArrayCtor *from)
 
 	return newnode;
 }
+
+/*
+ * _copyJsonArrayAgg
+ */
+static JsonArrayAgg *
+_copyJsonArrayAgg(const JsonArrayAgg *from)
+{
+	JsonArrayAgg *newnode = makeNode(JsonArrayAgg);
+
+	COPY_NODE_FIELD(ctor.output);
+	COPY_NODE_FIELD(ctor.agg_filter);
+	COPY_NODE_FIELD(ctor.agg_order);
+	COPY_SCALAR_FIELD(ctor.location);
+	COPY_NODE_FIELD(arg);
+	COPY_SCALAR_FIELD(absent_on_null);
+
+	return newnode;
+}
+
+/*
+ * _copyJsonArrayQueryCtor
+ */
+static JsonArrayQueryCtor *
+_copyJsonArrayQueryCtor(const JsonArrayQueryCtor *from)
+{
+	JsonArrayQueryCtor *newnode = makeNode(JsonArrayQueryCtor);
+
+	COPY_NODE_FIELD(query);
+	COPY_NODE_FIELD(output);
+	COPY_SCALAR_FIELD(format);
+	COPY_SCALAR_FIELD(absent_on_null);
+	COPY_SCALAR_FIELD(location);
+
+	return newnode;
+}
+
+/*
+ * _copyJsonTable
+ */
+static JsonTable *
+_copyJsonTable(const JsonTable *from)
+{
+	JsonTable *newnode = makeNode(JsonTable);
+
+	COPY_NODE_FIELD(common);
+	COPY_NODE_FIELD(columns);
+	COPY_NODE_FIELD(plan);
+	COPY_NODE_FIELD(on_error);
+	COPY_NODE_FIELD(alias);
+	COPY_SCALAR_FIELD(location);
+
+	return newnode;
+}
+
+/*
+ * _copyJsonTableColumn
+ */
+static JsonTableColumn *
+_copyJsonTableColumn(const JsonTableColumn *from)
+{
+	JsonTableColumn *newnode = makeNode(JsonTableColumn);
+
+	COPY_SCALAR_FIELD(coltype);
+	COPY_STRING_FIELD(name);
+	COPY_NODE_FIELD(typename);
+	COPY_STRING_FIELD(pathspec);
+	COPY_STRING_FIELD(pathname);
+	COPY_SCALAR_FIELD(format);
+	COPY_SCALAR_FIELD(wrapper);
+	COPY_SCALAR_FIELD(omit_quotes);
+	COPY_NODE_FIELD(columns);
+	COPY_NODE_FIELD(on_empty);
+	COPY_NODE_FIELD(on_error);
+	COPY_SCALAR_FIELD(location);
+
+	return newnode;
+}
+
+/*
+ * _copyJsonTablePlan
+ */
+static JsonTablePlan *
+_copyJsonTablePlan(const JsonTablePlan *from)
+{
+	JsonTablePlan *newnode = makeNode(JsonTablePlan);
+
+	COPY_SCALAR_FIELD(plan_type);
+	COPY_SCALAR_FIELD(join_type);
+	COPY_STRING_FIELD(pathname);
+	COPY_NODE_FIELD(plan1);
+	COPY_NODE_FIELD(plan2);
+	COPY_SCALAR_FIELD(location);
+
+	return newnode;
+}
+
+
 
 /* ****************************************************************
  *						relation.h copy functions
@@ -5191,8 +5307,26 @@ copyObjectImpl(const void *from)
 		case T_JsonObjectCtor:
 			retval = _copyJsonObjectCtor(from);
 			break;
+		case T_JsonObjectAgg:
+			retval = _copyJsonObjectAgg(from);
+			break;
 		case T_JsonArrayCtor:
 			retval = _copyJsonArrayCtor(from);
+			break;
+		case T_JsonArrayQueryCtor:
+			retval = _copyJsonArrayQueryCtor(from);
+			break;
+		case T_JsonArrayAgg:
+			retval = _copyJsonArrayAgg(from);
+			break;
+		case T_JsonTable:
+			retval = _copyJsonTable(from);
+			break;
+		case T_JsonTableColumn:
+			retval = _copyJsonTableColumn(from);
+			break;
+		case T_JsonTablePlan:
+			retval = _copyJsonTablePlan(from);
 			break;
 
 			/*
