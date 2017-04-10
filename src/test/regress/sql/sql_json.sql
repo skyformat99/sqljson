@@ -1193,6 +1193,8 @@ select 'aaa.type()'::jsonpath;
 select 'true.type()'::jsonpath;
 select '$.datetime()'::jsonpath;
 select '$.datetime("datetime template")'::jsonpath;
+select '$.reduce($1 + $2 + @[1])'::jsonpath;
+select '$.fold($1 + $2 + @[1], 2 + 3)'::jsonpath;
 
 select '$ ? (@ starts with "abc")'::jsonpath;
 select '$ ? (@ starts with $var)'::jsonpath;
@@ -1621,6 +1623,20 @@ select _jsonpath_object('1', 'strict $.map(@ + 10)');
 select _jsonpath_object('1', 'lax $.map(@ + 10)');
 select _jsonpath_object('[1, 2, 3]', '$.map(@ + 10)');
 select _jsonpath_object('[[1, 2], [3, 4, 5], [], [6, 7]]', '$.map(@.map(@ + 10))');
+
+-- extension: reduce/fold item methods
+select _jsonpath_object('1', 'strict $.reduce($1 + $2)');
+select _jsonpath_object('1', 'lax $.reduce($1 + $2)');
+select _jsonpath_object('1', 'strict $.fold($1 + $2, 10)');
+select _jsonpath_object('1', 'lax $.fold($1 + $2, 10)');
+select _jsonpath_object('[1, 2, 3]', '$.reduce($1 + $2)');
+select _jsonpath_object('[1, 2, 3]', '$.fold($1 + $2, 100)');
+select _jsonpath_object('[]', '$.reduce($1 + $2)');
+select _jsonpath_object('[]', '$.fold($1 + $2, 100)');
+select _jsonpath_object('[1]', '$.reduce($1 + $2)');
+select _jsonpath_object('[1, 2, 3]', '$.foldl([$1, $2], [])');
+select _jsonpath_object('[1, 2, 3]', '$.foldr([$2, $1], [])');
+select _jsonpath_object('[[1, 2], [3, 4, 5], [], [6, 7]]', '$.fold($1 + $2.fold($1 + $2, 100), 1000)');
 
 -- extension: path sequences
 select _jsonpath_object('[1,2,3,4,5]', '10, 20, $[*], 30');
