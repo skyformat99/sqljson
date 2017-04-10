@@ -2978,6 +2978,18 @@ select '$.datetime("datetime template")'::jsonpath;
  $.datetime("datetime template")
 (1 row)
 
+select '$.reduce($1 + $2 + @[1])'::jsonpath;
+            jsonpath             
+---------------------------------
+ $.reduce(($"1" + $"2") + @.[1])
+(1 row)
+
+select '$.fold($1 + $2 + @[1], 2 + 3)'::jsonpath;
+               jsonpath               
+--------------------------------------
+ $.fold(($"1" + $"2") + @.[1], 2 + 3)
+(1 row)
+
 select '$ ? (@ starts with "abc")'::jsonpath;
         jsonpath         
 -------------------------
@@ -4883,6 +4895,62 @@ select _jsonpath_object('[[1, 2], [3, 4, 5], [], [6, 7]]', '$.map(@.map(@ + 10))
             _jsonpath_object            
 ----------------------------------------
  [[11, 12], [13, 14, 15], [], [16, 17]]
+(1 row)
+
+-- extension: reduce/fold item methods
+select _jsonpath_object('1', 'strict $.reduce($1 + $2)');
+ERROR:  SQL/JSON array not found
+select _jsonpath_object('1', 'lax $.reduce($1 + $2)');
+ _jsonpath_object 
+------------------
+ 1
+(1 row)
+
+select _jsonpath_object('[1, 2, 3]', '$.reduce($1 + $2)');
+ _jsonpath_object 
+------------------
+ 6
+(1 row)
+
+select _jsonpath_object('[1, 2, 3]', '$.fold($1 + $2, 100)');
+ _jsonpath_object 
+------------------
+ 106
+(1 row)
+
+select _jsonpath_object('[]', '$.reduce($1 + $2)');
+ _jsonpath_object 
+------------------
+(0 rows)
+
+select _jsonpath_object('[]', '$.fold($1 + $2, 100)');
+ _jsonpath_object 
+------------------
+ 100
+(1 row)
+
+select _jsonpath_object('[1]', '$.reduce($1 + $2)');
+ _jsonpath_object 
+------------------
+ 1
+(1 row)
+
+select _jsonpath_object('[1, 2, 3]', '$.foldl([$1, $2], [])');
+ _jsonpath_object  
+-------------------
+ [[[[], 1], 2], 3]
+(1 row)
+
+select _jsonpath_object('[1, 2, 3]', '$.foldr([$2, $1], [])');
+ _jsonpath_object  
+-------------------
+ [[[[], 3], 2], 1]
+(1 row)
+
+select _jsonpath_object('[[1, 2], [3, 4, 5], [], [6, 7]]', '$.fold($1 + $2.fold($1 + $2, 100), 1000)');
+ _jsonpath_object 
+------------------
+ 1428
 (1 row)
 
 -- extension: path sequences
