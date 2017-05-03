@@ -1192,6 +1192,8 @@ select '$.datetime()'::jsonpath;
 select '$.datetime("datetime template")'::jsonpath;
 select '$.reduce($1 + $2 + @[1])'::jsonpath;
 select '$.fold($1 + $2 + @[1], 2 + 3)'::jsonpath;
+select '$.min().abs() + 5'::jsonpath;
+select '$.max().floor()'::jsonpath;
 
 select '$ ? (@ starts with "abc")'::jsonpath;
 select '$ ? (@ starts with $var)'::jsonpath;
@@ -1615,6 +1617,16 @@ select _jsonpath_object('[1]', '$.reduce($1 + $2)');
 select _jsonpath_object('[1, 2, 3]', '$.foldl([$1, $2], [])');
 select _jsonpath_object('[1, 2, 3]', '$.foldr([$2, $1], [])');
 select _jsonpath_object('[[1, 2], [3, 4, 5], [], [6, 7]]', '$.fold($1 + $2.fold($1 + $2, 100), 1000)');
+
+-- extension: min/max item methods
+select _jsonpath_object('1', 'strict $.min()');
+select _jsonpath_object('1', 'lax $.min()');
+select _jsonpath_object('[]', '$.min()');
+select _jsonpath_object('[]', '$.max()');
+select _jsonpath_object('[1, 2, 3]', '$.min()');
+select _jsonpath_object('[1, 2, 3]', '$.max()');
+select _jsonpath_object('[2, 3, 5, 1, 4]', '$.min()');
+select _jsonpath_object('[2, 3, 5, 1, 4]', '$.max()');
 
 -- extension: path sequences
 select _jsonpath_object('[1,2,3,4,5]', '10, 20, $[*], 30');
