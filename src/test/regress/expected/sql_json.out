@@ -3008,6 +3008,18 @@ select '$.fold($1 + $2 + @[1], 2 + 3)'::jsonpath;
  $.fold(($"1" + $"2") + @.[1], 2 + 3)
 (1 row)
 
+select '$.min().abs() + 5'::jsonpath;
+      jsonpath       
+---------------------
+ ($.min().abs() + 5)
+(1 row)
+
+select '$.max().floor()'::jsonpath;
+    jsonpath     
+-----------------
+ $.max().floor()
+(1 row)
+
 select '$ ? (@ starts with "abc")'::jsonpath;
         jsonpath         
 -------------------------
@@ -5043,6 +5055,49 @@ select _jsonpath_object('[[1, 2], [3, 4, 5], [], [6, 7]]', '$.fold($1 + $2.fold(
  _jsonpath_object 
 ------------------
  1428
+(1 row)
+
+-- extension: min/max item methods
+select _jsonpath_object('1', 'strict $.min()');
+ERROR:  SQL/JSON array not found
+select _jsonpath_object('1', 'lax $.min()');
+ _jsonpath_object 
+------------------
+ 1
+(1 row)
+
+select _jsonpath_object('[]', '$.min()');
+ _jsonpath_object 
+------------------
+(0 rows)
+
+select _jsonpath_object('[]', '$.max()');
+ _jsonpath_object 
+------------------
+(0 rows)
+
+select _jsonpath_object('[1, 2, 3]', '$.min()');
+ _jsonpath_object 
+------------------
+ 1
+(1 row)
+
+select _jsonpath_object('[1, 2, 3]', '$.max()');
+ _jsonpath_object 
+------------------
+ 3
+(1 row)
+
+select _jsonpath_object('[2, 3, 5, 1, 4]', '$.min()');
+ _jsonpath_object 
+------------------
+ 1
+(1 row)
+
+select _jsonpath_object('[2, 3, 5, 1, 4]', '$.max()');
+ _jsonpath_object 
+------------------
+ 5
 (1 row)
 
 -- extension: path sequences

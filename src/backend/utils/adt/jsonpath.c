@@ -337,6 +337,8 @@ flattenJsonPathParseItem(StringInfo buf, JsonPathParseItem *item,
 		case jpiCeiling:
 		case jpiDouble:
 		case jpiKeyValue:
+		case jpiMin:
+		case jpiMax:
 			break;
 		case jpiSequence:
 			{
@@ -774,6 +776,12 @@ printJsonPathItem(StringInfo buf, JsonPathItem *v, bool inKey, bool printBracket
 			printJsonPathItem(buf, &elem, false, false);
 			appendStringInfoChar(buf, ')');
 			break;
+		case jpiMin:
+			appendBinaryStringInfo(buf, ".min()", 6);
+			break;
+		case jpiMax:
+			appendBinaryStringInfo(buf, ".max()", 6);
+			break;
 		default:
 			elog(ERROR, "Unknown JsonPathItem type: %d", v->type);
 	}
@@ -867,6 +875,8 @@ jspInitByBuffer(JsonPathItem *v, char *base, int32 pos)
 		case jpiDouble:
 		case jpiKeyValue:
 		case jpiLast:
+		case jpiMin:
+		case jpiMax:
 			break;
 		case jpiKey:
 		case jpiString:
@@ -1006,7 +1016,9 @@ jspGetNext(JsonPathItem *v, JsonPathItem *a)
 			v->type == jpiReduce ||
 			v->type == jpiFold ||
 			v->type == jpiFoldl ||
-			v->type == jpiFoldr
+			v->type == jpiFoldr ||
+			v->type == jpiMin ||
+			v->type == jpiMax
 		);
 
 		if (a)
@@ -3219,6 +3231,78 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 				}
 
 				res = recursiveExecuteNext(cxt, jsp, NULL, result, found, false);
+			}
+			break;
+		case jpiMin:
+		case jpiMax:
+			if (JsonbType(jb) != jbvArray)
+			{
+				if (cxt->lax)
+					res = recursiveExecuteNext(cxt, jsp, NULL, jb, found, true);
+				else
+					res = jperMakeError(ERRCODE_JSON_ARRAY_NOT_FOUND);
+			}
+			else
+			{
+				JsonbValue	jbvElementBuf;
+				JsonbValue *jbvElement;
+				JsonbValue *jbvResult = NULL;
+				Jsonb	   *jbResult = NULL;
+				JsonbIterator *it = NULL;
+				JsonbIteratorToken tok;
+				int			size = JsonbArraySize(jb);
+				int			i;
+				bool		isMax = jsp->type == jpiMax;
+
+				if (jb->type == jbvBinary)
+				{
+					jbvElement = &jbvElementBuf;
+					it = JsonbIteratorInit(jb->val.binary.data);
+					tok = JsonbIteratorNext(&it, &jbvElementBuf, false);
+					if (tok != WJB_BEGIN_ARRAY)
+						elog(ERROR, "unexpected jsonb token at the array start");
+				}
+
+				for (i = 0; i < size; i++)
+				{
+					if (it)
+					{
+						tok = JsonbIteratorNext(&it, jbvElement, true);
+						if (tok != WJB_ELEM)
+							break;
+					}
+					else
+						jbvElement = &jb->val.array.elems[i];
+
+					if (!i)
+					{
+						jbvResult = it ? copyJsonbValue(jbvElement) : jbvElement;
+
+						if (size > 1)
+							jbResult = JsonbValueToJsonb(jbvResult);
+					}
+					else
+					{
+						Jsonb	   *jbElement = JsonbValueToJsonb(jbvElement);
+						int			cmp = compareJsonbContainers(&jbElement->root,
+																 &jbResult->root);
+
+						if (isMax ? cmp > 0 : cmp < 0)
+						{
+							jbvResult = it ? copyJsonbValue(jbvElement) : jbvElement;
+							jbResult = jbElement;
+						}
+					}
+				}
+
+				if (!jbvResult)
+				{
+					res = jperNotFound;
+					break;
+				}
+
+				res = recursiveExecuteNext(cxt, jsp, NULL, jbvResult, found,
+										   false);
 			}
 			break;
 		default:
