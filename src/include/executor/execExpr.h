@@ -584,6 +584,24 @@ typedef struct ExprEvalStep
 			ExprState  *default_on_empty;
 			ExprState  *default_on_error;
 			List	   *args;
+
+			struct
+			{
+				struct JsonScalarCoercionExprState
+				{
+					Node	   *result_expr;
+					ExprState  *result_expr_state;
+					bool		coerce_via_io;
+					bool		initialized;
+				} 			string,
+							numeric,
+							boolean,
+							date,
+							time,
+							timetz,
+							timestamp,
+							timestamptz;
+			}			scalar;
 		}			jsonexpr;
 
 	}			d;

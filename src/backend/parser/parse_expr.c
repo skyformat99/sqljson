@@ -3764,7 +3764,7 @@ transformJsonOutput(ParseState *pstate, JsonOutput **poutput, bool allow_format)
 							  allow_format);
 }
 
-static Node *
+Node *
 coerceJsonFuncExpr(ParseState *pstate, Node *expr, JsonReturning *returning,
 				   bool report_error)
 {

@@ -2081,6 +2081,9 @@ ExecInitExprRec(Expr *node, PlanState *parent, ExprState *state,
 					}
 				}
 
+				memset(&scratch.d.jsonexpr.scalar, 0,
+					   sizeof(scratch.d.jsonexpr.scalar));
+
 				ExprEvalPushStep(state, &scratch);
 			}
 			break;

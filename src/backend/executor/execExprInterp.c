@@ -67,6 +67,7 @@
 #include "miscadmin.h"
 #include "nodes/nodeFuncs.h"
 #include "parser/parsetree.h"
+#include "parser/parse_expr.h"
 #include "pgstat.h"
 #include "utils/builtins.h"
 #include "utils/date.h"
@@ -3754,12 +3755,115 @@ ExecEvalJson(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 				break;
 
 			case IS_JSON_VALUE:
-				jb = JsonbPathValue(jb, path, &empty, op->d.jsonexpr.args);
-
-				if (jb)
 				{
-					res = JsonbGetDatum(jb);
+					JsonbValue *jbv = JsonbPathValue(jb, path, &empty,
+													 op->d.jsonexpr.args);
+					struct JsonScalarCoercionExprState *cestate;
+					Oid			typid;
+
+					if (!jbv)
+						break;
+
 					*op->resnull = false;
+
+					switch (jbv->type)
+					{
+						case jbvString:
+							cestate = &op->d.jsonexpr.scalar.string;
+							typid = TEXTOID;
+							res = PointerGetDatum(
+								cstring_to_text_with_len(jbv->val.string.val,
+														 jbv->val.string.len));
+							break;
+						case jbvNumeric:
+							cestate = &op->d.jsonexpr.scalar.numeric;
+							typid = NUMERICOID;
+							res = NumericGetDatum(jbv->val.numeric);
+							break;
+						case jbvBool:
+							cestate = &op->d.jsonexpr.scalar.boolean;
+							typid = BOOLOID;
+							res = BoolGetDatum(jbv->val.boolean);
+							break;
+						case jbvDatetime:
+							res = jbv->val.datetime.value;
+							typid = jbv->val.datetime.typid;
+							switch (jbv->val.datetime.typid)
+							{
+								case DATEOID:
+									cestate = &op->d.jsonexpr.scalar.date;
+									break;
+								case TIMEOID:
+									cestate = &op->d.jsonexpr.scalar.time;
+									break;
+								case TIMETZOID:
+									cestate = &op->d.jsonexpr.scalar.timetz;
+									break;
+								case TIMESTAMPOID:
+									cestate = &op->d.jsonexpr.scalar.timestamp;
+									break;
+								case TIMESTAMPTZOID:
+									cestate = &op->d.jsonexpr.scalar.timestamptz;
+									break;
+								default:
+									elog(ERROR, "unexpected jsonb datetime type oid %d",
+										 jbv->val.datetime.typid);
+									cestate = NULL;
+									break;
+							}
+							break;
+						default:
+							elog(ERROR, "unexpected jsonb value type %d",
+								 jbv->type);
+							cestate = NULL;
+							typid = InvalidOid;
+							break;
+					}
+
+					if (!cestate->initialized)
+					{
+						MemoryContext oldCxt = MemoryContextSwitchTo(
+											econtext->ecxt_per_query_memory);
+						CaseTestExpr *placeholder = makeNode(CaseTestExpr);
+
+						placeholder->typeId = typid;
+						placeholder->typeMod = -1;
+						placeholder->collation = InvalidOid;
+
+						cestate->result_expr =
+								coerceJsonFuncExpr(NULL, (Node *) placeholder,
+											&op->d.jsonexpr.jsexpr->returning,
+											false);
+
+						cestate->coerce_via_io = !cestate->result_expr ||
+										IsA(cestate->result_expr, CoerceViaIO);
+
+						if (cestate->coerce_via_io ||
+							cestate->result_expr == (Node *) placeholder)
+							cestate->result_expr = NULL;
+
+						cestate->result_expr_state =
+							ExecInitExpr((Expr *) cestate->result_expr, NULL);
+
+						MemoryContextSwitchTo(oldCxt);
+
+						cestate->initialized = true;
+					}
+
+					if (cestate->coerce_via_io)
+					{
+						res = JsonbGetDatum(JsonbValueToJsonb(jbv));
+						res = ExecEvalJsonExprCoercion(op, econtext,
+													   res, op->resnull);
+					}
+					else if (cestate->result_expr_state)
+					{
+						res = ExecEvalExprPassingCaseValue(cestate->result_expr_state,
+														   econtext,
+														   op->resnull,
+														   res, false);
+					}
+					/* else no coercion */
 				}
 				break;
 
@@ -3788,7 +3892,7 @@ ExecEvalJson(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 		}
 
 		if (jexpr->op != IS_JSON_EXISTS &&
-			(!empty ||
+			(!empty ? jexpr->op != IS_JSON_VALUE :
 			 /* already coerced in DEFAULT case */
 			 jexpr->on_empty.btype != JSON_BEHAVIOR_DEFAULT))
 			res = ExecEvalJsonExprCoercion(op, econtext, res, op->resnull);

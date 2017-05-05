@@ -3858,7 +3858,7 @@ JsonbPathQuery(Jsonb *jb, JsonPath *jp, JsonWrapper wrapper,
 	return NULL;
 }
 
-Jsonb *
+JsonbValue *
 JsonbPathValue(Jsonb *jb, JsonPath *jp, bool *empty, List *vars)
 {
 	JsonbValue *res;
@@ -3894,5 +3894,5 @@ JsonbPathValue(Jsonb *jb, JsonPath *jp, bool *empty, List *vars)
 	if (res->type == jbvNull)
 		return NULL;
 
-	return JsonbValueToJsonb(res);
+	return res;
 }
