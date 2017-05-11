@@ -2668,6 +2668,37 @@ FROM JSON_TABLE(
 		COLUMNS (y text FORMAT JSON PATH '$ ? (@ < $x)')
 	) jt;
 ERROR:  could not find 'x' passed variable
+-- jsonpath operators
+SELECT jsonb '[{"a": 1}, {"a": 2}]' @* '$[*]';
+ ?column? 
+----------
+ {"a": 1}
+ {"a": 2}
+(2 rows)
+
+SELECT jsonb '[{"a": 1}, {"a": 2}]' @* '$[*] ? (@.a > 10)';
+ ?column? 
+----------
+(0 rows)
+
+SELECT jsonb '[{"a": 1}, {"a": 2}]' @* '[$[*].a]';
+ ?column? 
+----------
+ [1, 2]
+(1 row)
+
+SELECT jsonb '[{"a": 1}, {"a": 2}]' @? '$[*].a > 1';
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT jsonb '[{"a": 1}, {"a": 2}]' @? '$[*].a > 2';
+ ?column? 
+----------
+ f
+(1 row)
+
 --jsonpath io
 select '$'::jsonpath;
  jsonpath 
