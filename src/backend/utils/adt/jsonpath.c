@@ -27,7 +27,7 @@ typedef struct JsonPathExecContext
 	List	   *vars;
 	bool		lax;
 	JsonbValue *root;				/* for $ evaluation */
-	JsonbValue *innermostArray;		/* for LAST array index evaluation */
+	int			innermostArraySize;	/* for LAST array index evaluation */
 } JsonPathExecContext;
 
 static inline JsonPathExecResult recursiveExecute(JsonPathExecContext *cxt,
@@ -2241,12 +2241,12 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 		case jpiIndexArray:
 			if (JsonbType(jb) == jbvArray)
 			{
-				JsonbValue *innermostArray = cxt->innermostArray;
+				int			innermostArraySize = cxt->innermostArraySize;
 				int			i;
 				int			size = JsonbArraySize(jb);
 				bool		binary = jb->type == jbvBinary;
 
-				cxt->innermostArray = jb; /* for LAST evaluation */
+				cxt->innermostArraySize = size; /* for LAST evaluation */
 
 				hasNext = jspGetNext(jsp, &elem);
 
@@ -2318,7 +2318,7 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 						break;
 				}
 
-				cxt->innermostArray = innermostArray;
+				cxt->innermostArraySize = innermostArraySize;
 			}
 			else if (found)
 				res = jperMakeError(ERRCODE_JSON_ARRAY_NOT_FOUND);
@@ -2331,7 +2331,7 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 				int			last;
 				bool		hasNext;
 
-				if (!cxt->innermostArray)
+				if (cxt->innermostArraySize < 0)
 					elog(ERROR,
 						 "evaluating jsonpath LAST outside of array subscript");
 
@@ -2343,7 +2343,7 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 					break;
 				}
 
-				last = JsonbArraySize(cxt->innermostArray) - 1;
+				last = cxt->innermostArraySize - 1;
 
 				lastjbv = hasNext ? &tmpjbv : palloc(sizeof(*lastjbv));
 
@@ -3366,7 +3366,7 @@ executeJsonPath(JsonPath *path, List *vars, Jsonb *json, JsonValueList *foundJso
 	cxt.vars = vars;
 	cxt.lax = (path->header & JSONPATH_LAX) != 0;
 	cxt.root = JsonbInitBinary(&jbv, json);
-	cxt.innermostArray = NULL;
+	cxt.innermostArraySize = -1;
 
 	return recursiveExecute(&cxt, &jsp, &jbv, foundJson);
 }
