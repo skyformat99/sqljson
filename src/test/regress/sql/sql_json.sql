@@ -1137,6 +1137,15 @@ FROM JSON_TABLE(
 		COLUMNS (y text FORMAT JSON PATH '$ ? (@ < $x)')
 	) jt;
 
+-- jsonpath operators
+
+SELECT jsonb '[{"a": 1}, {"a": 2}]' @* '$[*]';
+SELECT jsonb '[{"a": 1}, {"a": 2}]' @* '$[*] ? (@.a > 10)';
+SELECT jsonb '[{"a": 1}, {"a": 2}]' @* '[$[*].a]';
+
+SELECT jsonb '[{"a": 1}, {"a": 2}]' @? '$[*].a > 1';
+SELECT jsonb '[{"a": 1}, {"a": 2}]' @? '$[*].a > 2';
+
 --jsonpath io
 
 select '$'::jsonpath;
