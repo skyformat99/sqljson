@@ -3572,6 +3572,51 @@ select _jsonpath_exists('[1]', '$.[0.9]');
 
 select _jsonpath_exists('[1]', '$.[1.2]');
 ERROR:  Invalid SQL/JSON subscript
+select _jsonpath_exists('{}', 'strict $.[0.3]');
+ERROR:  Invalid SQL/JSON subscript
+select _jsonpath_exists('{}', 'lax $.[0.3]');
+ _jsonpath_exists 
+------------------
+ t
+(1 row)
+
+select _jsonpath_exists('{}', 'strict $.[1.2]');
+ERROR:  Invalid SQL/JSON subscript
+select _jsonpath_exists('{}', 'lax $.[1.2]');
+ _jsonpath_exists 
+------------------
+ f
+(1 row)
+
+select _jsonpath_exists('{}', 'strict $.[-2 to 3]');
+ERROR:  Invalid SQL/JSON subscript
+select _jsonpath_exists('{}', 'lax $.[-2 to 3]');
+ _jsonpath_exists 
+------------------
+ t
+(1 row)
+
+-- extension: object subscripting
+select _jsonpath_exists('{"a": 1}', '$["a"]');
+ _jsonpath_exists 
+------------------
+ t
+(1 row)
+
+select _jsonpath_exists('{"a": 1}', 'strict $["b"]');
+ERROR:  SQL/JSON member not found
+select _jsonpath_exists('{"a": 1}', 'lax $["b"]');
+ _jsonpath_exists 
+------------------
+ f
+(1 row)
+
+select _jsonpath_exists('{"a": 1}', 'lax $["b", "a"]');
+ _jsonpath_exists 
+------------------
+ t
+(1 row)
+
 select _jsonpath_exists('{"a": [1,2,3], "b": [3,4,5]}', '$ ? (@.a[*] >  @.b[*])');
  _jsonpath_exists 
 ------------------
@@ -3700,6 +3745,12 @@ select * from _jsonpath_object('1', 'lax $[*]');
  1
 (1 row)
 
+select * from _jsonpath_object('{}', 'lax $[0]');
+ _jsonpath_object 
+------------------
+ {}
+(1 row)
+
 select * from _jsonpath_object('[1]', 'lax $[0]');
  _jsonpath_object 
 ------------------
@@ -3728,6 +3779,12 @@ select * from _jsonpath_object('[1]', '$[last]');
  1
 (1 row)
 
+select * from _jsonpath_object('{}', 'lax $[last]');
+ _jsonpath_object 
+------------------
+ {}
+(1 row)
+
 select * from _jsonpath_object('[1,2,3]', '$[last]');
  _jsonpath_object 
 ------------------
@@ -3748,6 +3805,29 @@ select * from _jsonpath_object('[1,2,3]', '$[last ? (@.type() == "number")]');
 
 select * from _jsonpath_object('[1,2,3]', '$[last ? (@.type() == "string")]');
 ERROR:  Invalid SQL/JSON subscript
+-- extension: object subscripting
+select * from _jsonpath_object('{"a": 1}', '$["a"]');
+ _jsonpath_object 
+------------------
+ 1
+(1 row)
+
+select * from _jsonpath_object('{"a": 1}', 'strict $["b"]');
+ERROR:  SQL/JSON member not found
+select * from _jsonpath_object('{"a": 1}', 'lax $["b"]');
+ _jsonpath_object 
+------------------
+(0 rows)
+
+select * from _jsonpath_object('{"a": 1, "b": 2}', 'lax $["b", "c", "b", "a", 0 to 3]');
+ _jsonpath_object 
+------------------
+ 2
+ 2
+ 1
+ {"a": 1, "b": 2}
+(4 rows)
+
 select * from _jsonpath_object('{"a": 10}', '$');
  _jsonpath_object 
 ------------------
