@@ -411,11 +411,10 @@ SELECT JSON_VALUE(jsonb '"123"', '$' RETURNING int) + 234;
 SELECT JSON_VALUE(jsonb '"2017-02-20"', '$' RETURNING date) + 9;
 
 -- Test NULL checks execution in domain types
-CREATE DOMAIN int_not_null AS int NOT NULL;
-SELECT JSON_VALUE(jsonb '1', '$.a' RETURNING int_not_null);
-SELECT JSON_VALUE(jsonb '1', '$.a' RETURNING int_not_null NULL ON ERROR);
-SELECT JSON_VALUE(jsonb '1', '$.a' RETURNING int_not_null DEFAULT NULL ON ERROR);
-DROP DOMAIN int_not_null;
+CREATE DOMAIN sqljson_int_not_null AS int NOT NULL;
+SELECT JSON_VALUE(jsonb '1', '$.a' RETURNING sqljson_int_not_null);
+SELECT JSON_VALUE(jsonb '1', '$.a' RETURNING sqljson_int_not_null NULL ON ERROR);
+SELECT JSON_VALUE(jsonb '1', '$.a' RETURNING sqljson_int_not_null DEFAULT NULL ON ERROR);
 
 SELECT JSON_VALUE(jsonb '[]', '$');
 SELECT JSON_VALUE(jsonb '[]', '$' ERROR ON ERROR);

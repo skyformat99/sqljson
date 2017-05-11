@@ -1228,14 +1228,13 @@ SELECT JSON_VALUE(jsonb '"2017-02-20"', '$' RETURNING date) + 9;
 (1 row)
 
 -- Test NULL checks execution in domain types
-CREATE DOMAIN int_not_null AS int NOT NULL;
-SELECT JSON_VALUE(jsonb '1', '$.a' RETURNING int_not_null);
-ERROR:  domain int_not_null does not allow null values
-SELECT JSON_VALUE(jsonb '1', '$.a' RETURNING int_not_null NULL ON ERROR);
-ERROR:  domain int_not_null does not allow null values
-SELECT JSON_VALUE(jsonb '1', '$.a' RETURNING int_not_null DEFAULT NULL ON ERROR);
-ERROR:  domain int_not_null does not allow null values
-DROP DOMAIN int_not_null;
+CREATE DOMAIN sqljson_int_not_null AS int NOT NULL;
+SELECT JSON_VALUE(jsonb '1', '$.a' RETURNING sqljson_int_not_null);
+ERROR:  domain sqljson_int_not_null does not allow null values
+SELECT JSON_VALUE(jsonb '1', '$.a' RETURNING sqljson_int_not_null NULL ON ERROR);
+ERROR:  domain sqljson_int_not_null does not allow null values
+SELECT JSON_VALUE(jsonb '1', '$.a' RETURNING sqljson_int_not_null DEFAULT NULL ON ERROR);
+ERROR:  domain sqljson_int_not_null does not allow null values
 SELECT JSON_VALUE(jsonb '[]', '$');
  ?column? 
 ----------
