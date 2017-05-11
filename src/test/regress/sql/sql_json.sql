@@ -553,6 +553,22 @@ FROM
 	generate_series(0, 4) x,
 	generate_series(0, 4) y;
 
+-- Conversion to record types
+CREATE TYPE sqljson_rec AS (a int, t text, js json, jb jsonb, jsa json[]);
+CREATE TYPE sqljson_reca AS (reca sqljson_rec[]);
+
+SELECT JSON_QUERY(jsonb '[{"a": 1, "b": "foo", "t": "aaa", "js": [1, "2", {}], "jb": {"x": [1, "2", {}]}},  {"a": 2}]', '$[0]' RETURNING sqljson_rec);
+SELECT * FROM unnest((JSON_QUERY(jsonb '{"jsa":  [{"a": 1, "b": ["foo"]}, {"a": 2, "c": {}}, 123]}', '$' RETURNING sqljson_rec)).jsa);
+SELECT * FROM unnest((JSON_QUERY(jsonb '{"reca": [{"a": 1, "t": ["foo", []]}, {"a": 2, "jb": [{}, true]}]}', '$' RETURNING sqljson_reca)).reca);
+
+-- Conversion to array types
+SELECT JSON_QUERY(jsonb '[1,2,null,"3"]', '$[*]' RETURNING int[] WITH WRAPPER);
+SELECT * FROM unnest(JSON_QUERY(jsonb '[{"a": 1, "t": ["foo", []]}, {"a": 2, "jb": [{}, true]}]', '$' RETURNING sqljson_rec[]));
+
+-- Conversion to domain types
+SELECT JSON_QUERY(jsonb '{"a": 1}', '$.a' RETURNING sqljson_int_not_null);
+SELECT JSON_QUERY(jsonb '{"a": 1}', '$.b' RETURNING sqljson_int_not_null);
+
 -- Test constraints
 
 CREATE TABLE test_json_constraints (
