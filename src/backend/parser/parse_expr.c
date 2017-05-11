@@ -4318,7 +4318,17 @@ transformJsonFuncExprOutput(ParseState *pstate,	JsonFuncExpr *func,
 													 false);
 
 			if (!jsexpr->result_expr)
-				jsexpr->coerce_via_io = true;
+			{
+				char	typtype = get_typtype(jsexpr->returning.typid);
+
+				if (jsexpr->returning.typid == RECORDOID ||
+					typtype == TYPTYPE_COMPOSITE ||
+					typtype == TYPTYPE_DOMAIN ||
+					type_is_array(jsexpr->returning.typid))
+					jsexpr->coerce_via_populate = true;
+				else
+					jsexpr->coerce_via_io = true;
+			}
 			else if (jsexpr->result_expr == placeholder)
 				jsexpr->result_expr = NULL;
 		}
