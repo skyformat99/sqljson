@@ -1311,6 +1311,19 @@ select _jsonpath_exists('[1]', '$.[0.5]');
 select _jsonpath_exists('[1]', '$.[0.9]');
 select _jsonpath_exists('[1]', '$.[1.2]');
 select _jsonpath_exists('[1]', 'strict $.[1.2]');
+select _jsonpath_exists('{}', 'strict $.[0.3]');
+select _jsonpath_exists('{}', 'lax $.[0.3]');
+select _jsonpath_exists('{}', 'strict $.[1.2]');
+select _jsonpath_exists('{}', 'lax $.[1.2]');
+select _jsonpath_exists('{}', 'strict $.[-2 to 3]');
+select _jsonpath_exists('{}', 'lax $.[-2 to 3]');
+
+-- extension: object subscripting
+select _jsonpath_exists('{"a": 1}', '$["a"]');
+select _jsonpath_exists('{"a": 1}', '$["b"]');
+select _jsonpath_exists('{"a": 1}', 'strict $["b"]');
+select _jsonpath_exists('{"a": 1}', '$["b", "a"]');
+
 select _jsonpath_exists('{"a": [1,2,3], "b": [3,4,5]}', '$ ? (@.a[*] >  @.b[*])');
 select _jsonpath_exists('{"a": [1,2,3], "b": [3,4,5]}', '$ ? (@.a[*] >= @.b[*])');
 select _jsonpath_exists('{"a": [1,2,3], "b": [3,4,"5"]}', '$ ? (@.a[*] >= @.b[*])');
@@ -1334,17 +1347,24 @@ select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}]', 'lax $.[0 to 10].a'
 select * from _jsonpath_object('[12, {"a": 13}, {"b": 14}, "ccc", true]', '$.[2.5 - 1 to @.size() - 2]');
 select * from _jsonpath_object('1', 'lax $[0]');
 select * from _jsonpath_object('1', 'lax $[*]');
+select * from _jsonpath_object('{}', 'lax $[0]');
 select * from _jsonpath_object('[1]', 'lax $[0]');
 select * from _jsonpath_object('[1]', 'lax $[*]');
 select * from _jsonpath_object('[1,2,3]', 'lax $[*]');
 select * from _jsonpath_object('[]', '$[last]');
 select * from _jsonpath_object('[]', 'strict $[last]');
 select * from _jsonpath_object('[1]', '$[last]');
+select * from _jsonpath_object('{}', 'lax $[last]');
 select * from _jsonpath_object('[1,2,3]', '$[last]');
 select * from _jsonpath_object('[1,2,3]', '$[last - 1]');
 select * from _jsonpath_object('[1,2,3]', '$[last ? (@.type() == "number")]');
 select * from _jsonpath_object('[1,2,3]', '$[last ? (@.type() == "string")]');
 
+-- extension: object subscripting
+select * from _jsonpath_object('{"a": 1}', '$["a"]');
+select * from _jsonpath_object('{"a": 1}', 'strict $["b"]');
+select * from _jsonpath_object('{"a": 1}', 'lax $["b"]');
+select * from _jsonpath_object('{"a": 1, "b": 2}', 'lax $["b", "c", "b", "a", 0 to 3]');
 
 select * from _jsonpath_object('{"a": 10}', '$');
 select * from _jsonpath_object('{"a": 10}', '$ ? (.a < $value)');
