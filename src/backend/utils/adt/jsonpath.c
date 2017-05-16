@@ -1577,7 +1577,7 @@ makeCompare(int32 op, JsonbValue *jb1, JsonbValue *jb2)
 			res = (cmp > 0);
 			break;
 		case jpiLessOrEqual:
-			res =  (cmp <= 0);
+			res = (cmp <= 0);
 			break;
 		case jpiGreaterOrEqual:
 			res = (cmp >= 0);
