@@ -448,7 +448,7 @@ printOperation(StringInfo buf, JsonPathItemType type)
 		case jpiEqual:
 			appendBinaryStringInfo(buf, " == ", 4); break;
 		case jpiNotEqual:
-			appendBinaryStringInfo(buf, " <> ", 4); break;
+			appendBinaryStringInfo(buf, " != ", 4); break;
 		case jpiLess:
 			appendBinaryStringInfo(buf, " < ", 3); break;
 		case jpiGreater:
