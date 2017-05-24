@@ -700,7 +700,7 @@ printJsonPathItem(StringInfo buf, JsonPathItem *v, bool inKey, bool printBracket
 			appendBinaryStringInfo(buf, ".keyvalue()", 11);
 			break;
 		case jpiMap:
-			appendBinaryStringInfo(buf, ".map(", 4);
+			appendBinaryStringInfo(buf, ".map(", 5);
 			jspGetArg(v, &elem);
 			printJsonPathItem(buf, &elem, false, false);
 			appendStringInfoChar(buf, ')');
@@ -2992,13 +2992,19 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 					res = recursiveExecute(cxt, &elem, element, &reslist);
 
 					if (jperIsError(res))
-						return res;
+						break;
 
 					if (JsonValueListLength(&reslist) != 1)
-						return jperMakeError(ERRCODE_SINGLETON_JSON_ITEM_REQUIRED);
+					{
+						res = jperMakeError(ERRCODE_SINGLETON_JSON_ITEM_REQUIRED);
+						break;
+					}
 
 					JsonValueListConcat(&result, reslist);
 				}
+
+				if (jperIsError(res))
+					break;
 
 				res = recursiveExecuteNext(cxt, jsp, NULL,
 										   wrapItemsInArray(&result),
