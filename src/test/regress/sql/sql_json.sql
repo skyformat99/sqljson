@@ -1296,6 +1296,13 @@ select '$ ? (a < 10.1e+1)'::jsonpath;
 select '$ ? (a < -10.1e+1)'::jsonpath;
 select '$ ? (a < +10.1e+1)'::jsonpath;
 
+select '@1'::jsonpath;
+select '@-1'::jsonpath;
+select '$ ? (@0 > 1)'::jsonpath;
+select '$ ? (@1 > 1)'::jsonpath;
+select '$.a ? (@.b ? (@1 > @) > 5)'::jsonpath;
+select '$.a ? (@.b ? (@2 > @) > 5)'::jsonpath;
+
 select _jsonpath_exists('{"a": 12}', '$.a.b');
 select _jsonpath_exists('{"a": 12}', '$.b');
 select _jsonpath_exists('{"a": {"a": 12}}', '$.a.a');
@@ -1707,6 +1714,13 @@ select _jsonpath_object('[1, 2, 3]', '{a: 2 + 3, "b": [$[*], 4, 5]}');
 select _jsonpath_object('[1, 2, 3]', '{a: 2 + 3, "b": [$[*], 4, 5]}.*');
 select _jsonpath_object('[1, 2, 3]', '{a: 2 + 3, "b": ($[*], 4, 5)}');
 select _jsonpath_object('[1, 2, 3]', '{a: 2 + 3, "b": [$.map({x: @, y: @ < 3})[*], {z: "foo"}]}');
+
+-- extension: outer item reference (@N)
+select _jsonpath_object('[2,4,1,5,3]', '$[*] ? (!exists($[*] ? (@ < @1)))');
+select _jsonpath_object('[2,4,1,5,3]', '$.map(@ + @1[0])');
+-- the first @1 and @2 reference array, the second @1 -- current mapped array element
+select _jsonpath_object('[2,4,1,5,3]', '$.map(@ + @1[@1 - @2[2]])');
+select _jsonpath_object('[[2,4,1,5,3]]', '$.map(@.reduce($1 + $2 + @2[0][2] + @1[3]))');
 
 --test ternary logic
 select
