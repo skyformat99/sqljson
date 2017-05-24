@@ -5075,6 +5075,14 @@ select _jsonpath_object('1', 'lax $.reduce($1 + $2)');
  1
 (1 row)
 
+select _jsonpath_object('1', 'strict $.fold($1 + $2, 10)');
+ERROR:  SQL/JSON array not found
+select _jsonpath_object('1', 'lax $.fold($1 + $2, 10)');
+ _jsonpath_object 
+------------------
+ 11
+(1 row)
+
 select _jsonpath_object('[1, 2, 3]', '$.reduce($1 + $2)');
  _jsonpath_object 
 ------------------

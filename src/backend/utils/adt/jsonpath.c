@@ -3145,7 +3145,12 @@ recursiveExecuteNoUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
 			if (JsonbType(jb) != jbvArray)
 			{
 				if (cxt->lax)
-					res = recursiveExecuteNext(cxt, jsp, NULL, jb, found, true);
+				{
+					if (jsp->type == jpiReduce)
+						res = recursiveExecuteNext(cxt, jsp, NULL, jb, found, true);
+					else
+						res = recursiveExecute(cxt, jsp, wrapItem(jb), found);
+				}
 				else
 					res = jperMakeError(ERRCODE_JSON_ARRAY_NOT_FOUND);
 			}

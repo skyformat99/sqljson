@@ -1653,6 +1653,8 @@ select _jsonpath_object('[[1, 2], [3, 4, 5], [], [6, 7]]', '$.map(@.map(@ + 10))
 -- extension: reduce/fold item methods
 select _jsonpath_object('1', 'strict $.reduce($1 + $2)');
 select _jsonpath_object('1', 'lax $.reduce($1 + $2)');
+select _jsonpath_object('1', 'strict $.fold($1 + $2, 10)');
+select _jsonpath_object('1', 'lax $.fold($1 + $2, 10)');
 select _jsonpath_object('[1, 2, 3]', '$.reduce($1 + $2)');
 select _jsonpath_object('[1, 2, 3]', '$.fold($1 + $2, 100)');
 select _jsonpath_object('[]', '$.reduce($1 + $2)');
