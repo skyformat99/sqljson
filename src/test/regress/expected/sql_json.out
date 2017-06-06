@@ -4265,6 +4265,27 @@ select _jsonpath_exists('1', '$ ? ($ > 0)');
  t
 (1 row)
 
+-- unwrapping of operator arguments in lax mode
+select _jsonpath_object('{"a": [2]}', 'lax $.a * 3');
+ _jsonpath_object 
+------------------
+ 6
+(1 row)
+
+select _jsonpath_object('{"a": [2, 3, 4]}', 'lax -$.a');
+ _jsonpath_object 
+------------------
+ -2
+ -3
+ -4
+(3 rows)
+
+-- should fail
+select _jsonpath_object('{"a": [1, 2]}', 'lax $.a * 3');
+ERROR:  Singleton SQL/JSON item required
+-- should fail (by standard unwrapped only arguments of multiplicative expressions)
+select _jsonpath_object('{"a": [2]}', 'lax $.a + 3');
+ERROR:  Singleton SQL/JSON item required
 -- extension: boolean expressions
 select _jsonpath_object('2', '$ > 1');
  _jsonpath_object 

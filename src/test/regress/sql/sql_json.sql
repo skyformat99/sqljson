@@ -1442,6 +1442,15 @@ select _jsonpath_exists('[1,2,3]', '$ ? (-@[*] < -2)');
 select _jsonpath_exists('[1,2,3]', '$ ? (-@[*] < -3)');
 select _jsonpath_exists('1', '$ ? ($ > 0)');
 
+-- unwrapping of operator arguments in lax mode
+select _jsonpath_object('{"a": [2]}', 'lax $.a * 3');
+select _jsonpath_object('{"a": [2, 3, 4]}', 'lax -$.a');
+-- should fail
+select _jsonpath_object('{"a": [1, 2]}', 'lax $.a * 3');
+-- should fail (by standard unwrapped only arguments of multiplicative expressions)
+select _jsonpath_object('{"a": [2]}', 'lax $.a + 3');
+
+
 -- extension: boolean expressions
 select _jsonpath_object('2', '$ > 1');
 select _jsonpath_object('2', '$ <= 1');

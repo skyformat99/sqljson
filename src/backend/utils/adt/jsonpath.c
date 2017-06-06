@@ -1629,6 +1629,53 @@ recursiveExecuteNext(JsonPathExecContext *cxt,
 	return jperOk;
 }
 
+static inline JsonPathExecResult
+recursiveExecuteAndUnwrap(JsonPathExecContext *cxt, JsonPathItem *jsp,
+						  JsonbValue *jb, JsonValueList *found)
+{
+	if (cxt->lax)
+	{
+		JsonValueList seq = { 0 };
+		JsonValueListIterator it = { 0 };
+		JsonPathExecResult res = recursiveExecute(cxt, jsp, jb, &seq);
+		JsonbValue *item;
+
+		if (jperIsError(res))
+			return res;
+
+		while ((item = JsonValueListNext(&seq, &it)))
+		{
+			if (item->type == jbvArray)
+			{
+				JsonbValue *elem = item->val.array.elems;
+				JsonbValue *last = elem + item->val.array.nElems;
+
+				for (; elem < last; elem++)
+					JsonValueListAppend(found, copyJsonbValue(elem));
+			}
+			else if (item->type == jbvBinary &&
+					 JsonContainerIsArray(item->val.binary.data))
+			{
+				JsonbValue	elem;
+				JsonbIterator *it = JsonbIteratorInit(item->val.binary.data);
+				JsonbIteratorToken tok;
+
+				while ((tok = JsonbIteratorNext(&it, &elem, true)) != WJB_DONE)
+				{
+					if (tok == WJB_ELEM)
+						JsonValueListAppend(found, copyJsonbValue(&elem));
+				}
+			}
+			else
+				JsonValueListAppend(found, item);
+		}
+
+		return jperOk;
+	}
+
+	return recursiveExecute(cxt, jsp, jb, found);
+}
+
 static JsonPathExecResult
 executeExpr(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb)
 {
@@ -1642,12 +1689,12 @@ executeExpr(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb)
 	bool		found = false;
 
 	jspGetLeftArg(jsp, &elem);
-	res = recursiveExecuteUnwrap(cxt, &elem, jb, &lseq);
+	res = recursiveExecuteAndUnwrap(cxt, &elem, jb, &lseq);
 	if (jperIsError(res))
 		return jperError;
 
 	jspGetRightArg(jsp, &elem);
-	res = recursiveExecuteUnwrap(cxt, &elem, jb, &rseq);
+	res = recursiveExecuteAndUnwrap(cxt, &elem, jb, &rseq);
 	if (jperIsError(res))
 		return jperError;
 
@@ -1718,15 +1765,20 @@ executeBinaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
 	Datum		rdatum;
 	Datum		res;
 	bool		hasNext;
+	bool		additive = jsp->type == jpiAdd || jsp->type == jpiSub;
 
 	jspGetLeftArg(jsp, &elem);
 
-	jper = recursiveExecute(cxt, &elem, jb, &lseq);
+	jper = additive /* XXX standard */
+		? recursiveExecute(cxt, &elem, jb, &lseq)
+		: recursiveExecuteAndUnwrap(cxt, &elem, jb, &lseq);
 
 	if (jper == jperOk)
 	{
 		jspGetRightArg(jsp, &elem);
-		jper = recursiveExecute(cxt, &elem, jb, &rseq);
+		jper = additive /* XXX standard */
+				? recursiveExecute(cxt, &elem, jb, &rseq)
+				: recursiveExecuteAndUnwrap(cxt, &elem, jb, &rseq);
 	}
 
 	if (jper != jperOk ||
@@ -1799,7 +1851,7 @@ executeUnaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
 	bool		hasNext;
 
 	jspGetArg(jsp, &elem);
-	jper = recursiveExecute(cxt, &elem, jb, &seq);
+	jper = recursiveExecuteAndUnwrap(cxt, &elem, jb, &seq);
 
 	if (jperIsError(jper))
 		return jperMakeError(ERRCODE_JSON_NUMBER_NOT_FOUND);
@@ -1977,7 +2029,7 @@ executeStartsWithPredicate(JsonPathExecContext *cxt, JsonPathItem *jsp,
 		return jperError;
 
 	jspGetLeftArg(jsp, &elem);
-	res = recursiveExecuteUnwrap(cxt, &elem, jb, &lseq);
+	res = recursiveExecuteAndUnwrap(cxt, &elem, jb, &lseq);
 	if (jperIsError(res))
 		return jperError;
 
@@ -3458,8 +3510,6 @@ recursiveExecute(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
 			case jpiAnyKey:
 		/*	case jpiAny: */
 			case jpiFilter:
-			case jpiPlus:
-			case jpiMinus:
 			/* all methods excluding type() and size() */
 			case jpiAbs:
 			case jpiFloor:
